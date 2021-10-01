@@ -1,0 +1,51 @@
+(define fmt 0)
+(define div 96)
+(define trk 0)
+(define chn 0)
+(define num 64)
+(define vel 96)
+(define oct 5)
+(define dur 4)
+(define art 4)
+
+(define delta
+    (lambda (dur)
+        (/ (* div 4) dur)))
+
+(define rest
+    (lambda (dur)
+        (adv-clock trk (delta dur))))
+
+(define on
+    (lambda (chn num vel)
+        (put-event trk 0
+            (note-on chn num vel))))
+
+(define off
+    (lambda (chn num vel)
+        (put-event trk 0
+            (note-off chn num vel))))
+
+(define note
+    (lambda (num dur art vel)
+        (put-event trk 0 
+            (note-on chn num vel))
+        (put-event trk 
+            (delta art) 
+            (note-on chn num 0))
+        (adv-clock trk (delta dur))))
+
+(define program
+    (lambda (prg)
+        (put-event trk 0
+            (program-change chn prg))))
+
+(define tempo
+    (lambda (tmp)
+        (put-event trk 0
+            (set-tempo (/ 60000000 tmp)))))
+
+(define time
+    (lambda (nn dd cc bb)
+        (put-event trk 0
+            (time-signature nn dd cc bb))))

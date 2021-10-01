@@ -1,0 +1,19 @@
+[package]
+name = "midilisp"
+version = "0.0.0-alpha"
+authors = ["mkfoo"]
+edition = "2018"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[profile.release]
+lto = true
+opt-level = "z"
+
+[dependencies]
+fnv = "1.0"
+indexmap = "1.7"
+smol_str = "0.1"
+thiserror = "1.0"
+

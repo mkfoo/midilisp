@@ -1,0 +1,10 @@
+[package]
+name = "midilisp_cli"
+version = "0.0.0-alpha"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+midilisp = { path = "../lib" }
+thiserror = "1.0"

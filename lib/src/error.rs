@@ -22,6 +22,8 @@ pub enum Error {
     InvalidMacro,
     #[error("unexpected right parenthesis")]
     InvalidParen,
+    #[error("invalid include path")]
+    InvalidPath,
     #[error("invalid time division")]
     InvalidTimeDiv,
     #[error("missing argument")]

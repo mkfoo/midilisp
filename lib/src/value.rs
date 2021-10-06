@@ -86,6 +86,13 @@ impl Value {
         }
     }
 
+    pub fn to_str(self) -> Result<StrId> {
+        match self {
+            Self::Str(id) => Ok(id),
+            _ => Err(Error::TypeErr),
+        }
+    }
+
     pub fn to_u7(self) -> Result<u8> {
         match self {
             Self::U32(i) => Ok((i & 0x7f) as u8),

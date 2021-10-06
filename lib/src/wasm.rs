@@ -1,6 +1,8 @@
 use std::alloc::{alloc, Layout};
 use std::io::Cursor;
 
+pub const DEFAULT: &str = include_str!("../include/default.midilisp");
+
 type WasmResult = Result<Vec<u8>, Vec<u8>>;
 
 #[export_name = "malloc"]

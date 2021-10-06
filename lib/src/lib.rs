@@ -2,7 +2,6 @@
 
 mod env;
 mod error;
-mod include;
 mod interpreter;
 mod lexer;
 mod midi;
@@ -13,15 +12,13 @@ mod value;
 pub mod wasm;
 
 use error::Result;
-use include::DEFAULT;
 use interpreter::Interpreter;
 use std::io::Write;
 use value::Value;
 
 pub fn run<W: Write>(writer: &mut W, src: &str) -> Result<Value> {
-    let src1 = [DEFAULT, src].concat();
     let mut itp = Interpreter::new();
-    itp.run(writer, &src1)
+    itp.run(writer, src)
 }
 
 #[cfg(test)]
@@ -82,7 +79,8 @@ mod tests {
 
     #[test]
     fn fmt0_lib() {
-        let src = "(time 4 2 24 8)
+        let src = "(include \"default\")
+                   (time 4 2 24 8)
                    (tempo 120)
                    (program 5)
                    (set chn 1)
@@ -107,7 +105,8 @@ mod tests {
 
     #[test]
     fn fmt1_lib() {
-        let src = "(set fmt 1)
+        let src = "(include \"default\")
+                   (set fmt 1)
                    (time 4 2 24 8)
                    (tempo 120)
                    (rest 1)

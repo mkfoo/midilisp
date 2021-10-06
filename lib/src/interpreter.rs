@@ -2,18 +2,22 @@ use crate::{
     env::EnvStore,
     error::{Error, Result},
     midi::{Event, Header, Track},
-    parser::{AstPtr, Expr, Parser, NIL},
+    parser::{AstPtr, Expr, Parser, StrId, NIL},
     value::Value,
 };
 use fnv::FnvBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 use std::convert::TryInto;
+use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
 
 type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
 type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
 type OpFn = fn(Value, Value) -> Result<Value>;
+
+const INCLUDE_PATH: &str = "./include";
 
 struct Lambda(u32, Box<[u32]>, AstPtr);
 
@@ -21,6 +25,7 @@ pub struct Interpreter {
     parser: Parser,
     env: EnvStore,
     builtins: Vec<BuiltinFn<Self>>,
+    paths: Vec<PathBuf>,
     lambdas: Vec<Lambda>,
     events: FnvIndexSet<Event>,
     tracks: Vec<Track>,
@@ -32,6 +37,7 @@ impl Interpreter {
             parser: Parser::new(),
             env: EnvStore::new(),
             builtins: Vec::with_capacity(15),
+            paths: Vec::new(),
             lambdas: Vec::new(),
             events: Default::default(),
             tracks: Vec::new(),
@@ -309,6 +315,19 @@ impl Interpreter {
         Ok(val)
     }
 
+    fn include(&mut self, expr: AstPtr) -> Result<Value> {
+        let mut args = expr;
+
+        while args != NIL {
+            let (arg, more) = self.expect_cons(args)?;
+            let id = self.eval(arg)?.to_str()?;
+            self._include(id)?;
+            args = more;
+        }
+
+        Ok(Value::Nil)
+    }
+
     fn lambda(&mut self, expr: AstPtr) -> Result<Value> {
         let (mut args, body) = self.expect_cons(expr)?;
         let mut argv = Vec::new();
@@ -451,6 +470,62 @@ impl Interpreter {
         Ok(Value::Midi(self.events.insert_full(e).0 as u32))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn _include(&mut self, id: StrId) -> Result<()> {
+        let mut path = PathBuf::from(INCLUDE_PATH);
+
+        path.push(self.parser.get_str(id));
+
+        if !path.exists() {
+            path.set_extension("midilisp");
+        }
+
+        if !path.is_file() {
+            return Err(Error::InvalidPath);
+        }
+
+        path.canonicalize().map_err(|_| Error::InvalidPath)?;
+
+        if !self.paths.contains(&path) {
+            let src = fs::read_to_string(&path).map_err(|_| Error::IO)?;
+            let exprs = self.parser.parse(&src)?;
+
+            for expr in exprs.iter() {
+                self.eval(*expr)?;
+            }
+
+            self.paths.push(path);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn _include(&mut self, id: StrId) -> Result<()> {
+        use crate::wasm;
+        let s = self.parser.get_str(id);
+        let name = s.strip_suffix(".midilisp").unwrap_or(s);
+
+        let src = match name {
+            "default" => wasm::DEFAULT,
+            _ => return Err(Error::InvalidPath),
+        };
+
+        let path = PathBuf::from(name);
+
+        if !self.paths.contains(&path) {
+            let exprs = self.parser.parse(&src)?;
+
+            for expr in exprs.iter() {
+                self.eval(*expr)?;
+            }
+
+            self.paths.push(path);
+        }
+
+        Ok(())
+    }
+
     fn _define(&mut self, s: &'static str, val: Value) {
         let id = self.parser.add_str(s);
         self.env.extend(0, id, val);
@@ -495,6 +570,7 @@ impl Interpreter {
         self._builtin("set", Self::set);
         self._builtin("let", Self::let_);
         self._builtin("print", Self::print);
+        self._builtin("include", Self::include);
         self._builtin("adv-clock", Self::adv_clock);
         self._builtin("lambda", Self::lambda);
         self._builtin("note-off", Self::note_off);

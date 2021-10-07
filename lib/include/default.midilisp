@@ -1,8 +1,5 @@
-(define fmt 0)
-(define div 96)
 (define trk 0)
 (define chn 0)
-(define num 64)
 (define vel 96)
 (define oct 5)
 (define dur 4)
@@ -10,7 +7,9 @@
 
 (define delta
     (lambda (dur)
-        (/ (* div 4) dur)))
+        (if (= dur 0)
+            0
+            (/ (* div 4) dur))))
 
 (define rest
     (lambda (dur)

@@ -119,17 +119,12 @@ mod tests {
                    (set chn 1)
                    (program 46)
                    (rest 4)
-                   (on 1 67 64)
-                   (3 (rest 4))
-                   (on 1 67 0)
+                   (note 67 1.33 1.33 64)
                    (set trk 3) 
                    (set chn 2)
                    (program 70)
-                   (on 2 48 96)
-                   (on 2 60 96)
-                   (rest 1)
-                   (on 2 48 0)
-                   (on 2 60 0)";
+                   (note 48 0 1 96)
+                   (note 60 0 1 96)";
         let mut w = Cursor::new(Vec::new());
         run(&mut w, src).unwrap();
         bindiff(FILE1, &w.into_inner());

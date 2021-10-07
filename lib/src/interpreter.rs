@@ -725,21 +725,17 @@ mod tests {
                            (lambda ()
                                (set a (+ a 1))
                                (+ a b c))))
-
                    (define bar (foo 1 2 3))
-
                    (define baz
                        ((lambda ()
                            (let ((a 1) (b 2) (c 33))
                                (lambda () (+ a b c))))))
-
                    (define qux
                        ((lambda ()
                            (let ((a 1) (b 2) (c 23))
                                (lambda ()
                                    (set a (+ a 1))
                                    (+ a b c))))))
-
                    (bar)
                    (bar)
                    (baz)

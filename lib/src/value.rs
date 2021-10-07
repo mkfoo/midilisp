@@ -16,6 +16,7 @@ pub enum Value {
     I32(i32),
     Ident(StrId),
     Lambda(u32),
+    Macro(AstPtr),
     Midi(u32),
     Nil,
     Quote(AstPtr),
@@ -105,6 +106,15 @@ impl Value {
         match self {
             Self::U32(i) => Ok((i & 0xffff) as u16),
             Self::Nil => Err(Error::NilArgument),
+            _ => Err(Error::NotANumber),
+        }
+    }
+
+    pub fn abs(self) -> Result<Self> {
+        match self {
+            v @ U32(_) => Ok(v),
+            I32(v) => Ok(I32(v.abs())),
+            F32(v) => Ok(F32(v.abs())),
             _ => Err(Error::NotANumber),
         }
     }
@@ -302,6 +312,7 @@ impl fmt::Display for Value {
             Self::Builtin(_) => write!(f, "<builtin>"),
             Self::Ident(_) => write!(f, "<ident>"),
             Self::Lambda(_) => write!(f, "<lambda>"),
+            Self::Macro(_) => write!(f, "<macro>"),
             Self::Midi(_) => write!(f, "<midi event>"),
             Self::Nil => write!(f, "()"),
             Self::Quote(_) => write!(f, "<quote>"),

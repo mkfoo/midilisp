@@ -17,8 +17,6 @@ type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
 type OpFn = fn(Value, Value) -> Result<Value>;
 
-const INCLUDE_PATH: &str = "./include";
-
 struct Lambda(u32, Box<[u32]>, AstPtr);
 
 pub struct Interpreter {
@@ -82,6 +80,12 @@ impl Interpreter {
         }
 
         Ok(())
+    }
+
+    fn abs(&mut self, expr: AstPtr) -> Result<Value> {
+        let (val, nil) = self.expect_arg(expr)?;
+        self.expect_nil(nil)?;
+        val.abs()
     }
 
     fn adv_clock(&mut self, expr: AstPtr) -> Result<Value> {
@@ -256,6 +260,7 @@ impl Interpreter {
 
     fn get(&mut self, id: u32) -> Result<Value> {
         match self.env.get(id) {
+            Some(Value::Macro(e)) => self.eval(e),
             Some(val) => Ok(val),
             None => {
                 let s = self.parser.get_str(id);
@@ -365,6 +370,12 @@ impl Interpreter {
         Ok(retval)
     }
 
+    fn macro_(&mut self, expr: AstPtr) -> Result<Value> {
+        let (car, nil) = self.expect_cons(expr)?;
+        self.expect_nil(nil)?;
+        Ok(Value::Macro(car))
+    }
+
     fn print(&mut self, expr: AstPtr) -> Result<Value> {
         let (car, nil) = self.expect_cons(expr)?;
         self.expect_nil(nil)?;
@@ -472,9 +483,7 @@ impl Interpreter {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn _include(&mut self, id: StrId) -> Result<()> {
-        let mut path = PathBuf::from(INCLUDE_PATH);
-
-        path.push(self.parser.get_str(id));
+        let mut path = PathBuf::from(self.parser.get_str(id));
 
         if !path.exists() {
             path.set_extension("midilisp");
@@ -539,6 +548,7 @@ impl Interpreter {
     fn _define_builtins(&mut self) {
         self._define("fmt", Value::U32(0));
         self._define("div", Value::U32(96));
+        self._define("path", Value::Nil);
         self._define("true", Value::Bool(true));
         self._define("false", Value::Bool(false));
         self._builtin("+", |i, e| i.var_op(e, Value::add));
@@ -579,6 +589,8 @@ impl Interpreter {
         self._builtin("set-tempo", Self::set_tempo);
         self._builtin("time-signature", Self::time_signature);
         self._builtin("put-event", Self::put_event);
+        self._builtin("macro", Self::macro_);
+        self._builtin("abs", Self::abs);
     }
 }
 
@@ -593,7 +605,10 @@ mod tests {
                    (* (* 2 (* 2 3)) (* 4 5))
                    (/ (/ 64 2) (/ 8 4))
                    (% (% 10 6) (% 10 7))
-                   (** (** 2 2) (** 2 3))";
+                   (** (** 2 2) (** 2 3))
+                   (abs -0)
+                   (abs -6)
+                   (abs -12.5)";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
         assert_eq!(Value::U32(120), itp.eval(exprs[0]).unwrap());
@@ -602,6 +617,9 @@ mod tests {
         assert_eq!(Value::U32(16), itp.eval(exprs[3]).unwrap());
         assert_eq!(Value::U32(1), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::U32(65536), itp.eval(exprs[5]).unwrap());
+        assert_eq!(Value::I32(0), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::I32(6), itp.eval(exprs[7]).unwrap());
+        assert_eq!(Value::F32(12.5), itp.eval(exprs[8]).unwrap());
     }
 
     #[test]
@@ -736,21 +754,29 @@ mod tests {
                                (lambda ()
                                    (set a (+ a 1))
                                    (+ a b c))))))
+                   (define xyz
+                       (let ((a 1))
+                           (lambda (b) 
+                               (set a (+ a b)) a)))
                    (bar)
                    (bar)
                    (baz)
                    (qux)
-                   (qux)";
+                   (qux)
+                   (xyz 1)
+                   (xyz 2)";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        for n in 0..4_usize {
+        for n in 0..5_usize {
             itp.eval(exprs[n]).unwrap();
         }
-        assert_eq!(Value::U32(7), itp.eval(exprs[4]).unwrap());
-        assert_eq!(Value::U32(8), itp.eval(exprs[5]).unwrap());
-        assert_eq!(Value::U32(36), itp.eval(exprs[6]).unwrap());
-        assert_eq!(Value::U32(27), itp.eval(exprs[7]).unwrap());
-        assert_eq!(Value::U32(28), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::U32(7), itp.eval(exprs[5]).unwrap());
+        assert_eq!(Value::U32(8), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::U32(36), itp.eval(exprs[7]).unwrap());
+        assert_eq!(Value::U32(27), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::U32(28), itp.eval(exprs[9]).unwrap());
+        assert_eq!(Value::U32(2), itp.eval(exprs[10]).unwrap());
+        assert_eq!(Value::U32(4), itp.eval(exprs[11]).unwrap());
     }
 
     #[test]
@@ -771,5 +797,18 @@ mod tests {
         assert_eq!(Value::U32(3), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::U32(1), itp.eval(exprs[5]).unwrap());
         assert_eq!(Value::U32(4), itp.eval(exprs[6]).unwrap());
+    }
+
+    #[test]
+    fn macros() {
+        let src = "(define a (macro (+ 1 2 3)))
+                   (define b (macro (+ a 6)))
+                   a b";
+        let mut itp = Interpreter::new();
+        let exprs = itp.parser.parse(src).unwrap();
+        itp.eval(exprs[0]).unwrap();
+        itp.eval(exprs[1]).unwrap();
+        assert_eq!(Value::U32(6), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::U32(12), itp.eval(exprs[3]).unwrap());
     }
 }

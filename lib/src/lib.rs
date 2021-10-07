@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn fmt0_lib() {
-        let src = "(include \"default\")
+        let src = "(include \"include/default\")
                    (time 4 2 24 8)
                    (tempo 120)
                    (program 5)
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn fmt1_lib() {
-        let src = "(include \"default\")
+        let src = "(include \"include/default\")
                    (set fmt 1)
                    (time 4 2 24 8)
                    (tempo 120)

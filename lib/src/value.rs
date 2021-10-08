@@ -119,6 +119,23 @@ impl Value {
         }
     }
 
+    pub fn neg(self) -> Result<Self> {
+        match self {
+            I32(v) => Ok(I32(-v)),
+            F32(v) => Ok(F32(-v)),
+            _ => Err(Error::TypeErr),
+        }
+    }
+
+    pub fn not(self) -> Result<Self> {
+        match self {
+            U32(v) => Ok(U32(!v)),
+            I32(v) => Ok(I32(!v)),
+            Bool(v) => Ok(Bool(!v)),
+            _ => Err(Error::TypeErr),
+        }
+    }
+
     pub fn convert(self, other: Self) -> Result<(Self, Self)> {
         Ok(match (self, other) {
             (I32(_), U32(_)) => (self, other.to_i32()?),

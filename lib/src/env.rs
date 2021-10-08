@@ -47,7 +47,7 @@ impl EnvStore {
                 if key.0 == env {
                     self.values.pop().unwrap();
                 } else {
-                    break;    
+                    break;
                 }
             }
 

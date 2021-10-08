@@ -15,6 +15,7 @@ use std::path::PathBuf;
 type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
 type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
+type UnOpFn = fn(Value) -> Result<Value>;
 type OpFn = fn(Value, Value) -> Result<Value>;
 
 struct Lambda(u32, Box<[u32]>, AstPtr);
@@ -34,7 +35,7 @@ impl Interpreter {
         let mut itp = Self {
             parser: Parser::new(),
             env: EnvStore::new(),
-            builtins: Vec::with_capacity(15),
+            builtins: Vec::with_capacity(40),
             paths: Vec::new(),
             lambdas: Vec::new(),
             events: Default::default(),
@@ -82,12 +83,6 @@ impl Interpreter {
         Ok(())
     }
 
-    fn abs(&mut self, expr: AstPtr) -> Result<Value> {
-        let (val, nil) = self.expect_arg(expr)?;
-        self.expect_nil(nil)?;
-        val.abs()
-    }
-
     fn adv_clock(&mut self, expr: AstPtr) -> Result<Value> {
         let (trk, next) = self.expect_u32(expr)?;
         let (dur, next) = self.expect_u32(next)?;
@@ -104,6 +99,12 @@ impl Interpreter {
             Value::U32(n) => self.repeat(n, cdr),
             _ => Err(Error::CannotApply),
         }
+    }
+
+    fn un_op(&mut self, expr: AstPtr, f: UnOpFn) -> Result<Value> {
+        let (lhs, next) = self.expect_arg(expr)?;
+        self.expect_nil(next)?;
+        f(lhs)
     }
 
     fn bin_op(&mut self, expr: AstPtr, f: OpFn) -> Result<Value> {
@@ -294,7 +295,7 @@ impl Interpreter {
     fn if_(&mut self, expr: AstPtr) -> Result<Value> {
         let (cond, next) = self.expect_arg(expr)?;
         let (car, cdr) = self.expect_cons(next)?;
-        
+
         if let Ok((_, nil)) = self.expect_cons(cdr) {
             self.expect_nil(nil)?;
         }
@@ -538,7 +539,6 @@ impl Interpreter {
     fn _define_builtins(&mut self) {
         self._define("fmt", Value::U32(0));
         self._define("div", Value::U32(96));
-        self._define("path", Value::Nil);
         self._define("true", Value::Bool(true));
         self._define("false", Value::Bool(false));
         self._builtin("+", |i, e| i.var_op(e, Value::add));
@@ -560,10 +560,12 @@ impl Interpreter {
         self._builtin("<", |i, e| i.bin_op(e, Value::lt));
         self._builtin(">=", |i, e| i.bin_op(e, Value::ge));
         self._builtin("<=", |i, e| i.bin_op(e, Value::le));
+        self._builtin("!", |i, e| i.un_op(e, Value::not));
+        self._builtin("abs", |i, e| i.un_op(e, Value::abs));
+        self._builtin("neg", |i, e| i.un_op(e, Value::neg));
         self._builtin("car", Self::car);
         self._builtin("cdr", Self::cdr);
         self._builtin("quote", Self::quote);
-        self._builtin("!", Self::bitnot);
         self._builtin("if", Self::if_);
         self._builtin("define", Self::define);
         self._builtin("set", Self::set);
@@ -579,7 +581,6 @@ impl Interpreter {
         self._builtin("time-signature", Self::time_signature);
         self._builtin("put-event", Self::put_event);
         self._builtin("macro", Self::macro_);
-        self._builtin("abs", Self::abs);
     }
 }
 
@@ -597,7 +598,9 @@ mod tests {
                    (** (** 2 2) (** 2 3))
                    (abs -0)
                    (abs -6)
-                   (abs -12.5)";
+                   (abs -12.5)
+                   (neg 6.0)
+                   (neg -12)";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
         assert_eq!(Value::U32(120), itp.eval(exprs[0]).unwrap());
@@ -609,6 +612,8 @@ mod tests {
         assert_eq!(Value::I32(0), itp.eval(exprs[6]).unwrap());
         assert_eq!(Value::I32(6), itp.eval(exprs[7]).unwrap());
         assert_eq!(Value::F32(12.5), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::F32(-6.0), itp.eval(exprs[9]).unwrap());
+        assert_eq!(Value::I32(12), itp.eval(exprs[10]).unwrap());
     }
 
     #[test]
@@ -673,11 +678,29 @@ mod tests {
     }
 
     #[test]
+    fn boolean() {
+        let src = "(&& true true)
+                   (&& true false)
+                   (|| false false)
+                   (|| true false)
+                   (! true)
+                   (! false)";
+        let mut itp = Interpreter::new();
+        let exprs = itp.parser.parse(src).unwrap();
+        assert_eq!(Value::Bool(true), itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::Bool(false), itp.eval(exprs[1]).unwrap());
+        assert_eq!(Value::Bool(false), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::Bool(true), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::Bool(false), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::Bool(true), itp.eval(exprs[5]).unwrap());
+    }
+
+    #[test]
     fn if_() {
         let src = "(if true 10 99)
                    (if false 10 99)
-                   (if (&& true true) (+ 1 9) (+ 90 9))
-                   (if (|| false false) (+ 1 9) (+ 90 9))
+                   (if true (+ 1 9) (+ 90 9))
+                   (if false (+ 1 9) (+ 90 9))
                    (if true (+ 10 10))
                    (if false (+ 10 10))";
         let mut itp = Interpreter::new();
@@ -743,25 +766,33 @@ mod tests {
                        (let ((a 1))
                            (lambda (b) 
                                (set a (+ a b)) a)))
+                   (define asd
+                       (let ((a 1))
+                           (define b 99)
+                           (lambda () (set b (+ b 1)) b)))
                    (bar)
                    (bar)
                    (baz)
                    (qux)
                    (qux)
                    (xyz 1)
-                   (xyz 2)";
+                   (xyz 2)
+                   (asd)
+                   (asd)";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        for n in 0..5_usize {
+        for n in 0..6_usize {
             itp.eval(exprs[n]).unwrap();
         }
-        assert_eq!(Value::U32(7), itp.eval(exprs[5]).unwrap());
-        assert_eq!(Value::U32(8), itp.eval(exprs[6]).unwrap());
-        assert_eq!(Value::U32(36), itp.eval(exprs[7]).unwrap());
-        assert_eq!(Value::U32(27), itp.eval(exprs[8]).unwrap());
-        assert_eq!(Value::U32(28), itp.eval(exprs[9]).unwrap());
-        assert_eq!(Value::U32(2), itp.eval(exprs[10]).unwrap());
-        assert_eq!(Value::U32(4), itp.eval(exprs[11]).unwrap());
+        assert_eq!(Value::U32(7), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::U32(8), itp.eval(exprs[7]).unwrap());
+        assert_eq!(Value::U32(36), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::U32(27), itp.eval(exprs[9]).unwrap());
+        assert_eq!(Value::U32(28), itp.eval(exprs[10]).unwrap());
+        assert_eq!(Value::U32(2), itp.eval(exprs[11]).unwrap());
+        assert_eq!(Value::U32(4), itp.eval(exprs[12]).unwrap());
+        assert_eq!(Value::U32(100), itp.eval(exprs[13]).unwrap());
+        assert_eq!(Value::U32(101), itp.eval(exprs[14]).unwrap());
     }
 
     #[test]

@@ -41,10 +41,14 @@ impl EnvStore {
         self.values.insert((env, id), val).is_none()
     }
 
-    pub fn pop(&mut self, env: u32, argc: u32) {
+    pub fn pop(&mut self, env: u32) {
         if !self.capture {
-            for _ in 0..argc {
-                self.values.pop().expect("BUG: stack underflow");
+            while let Some((key, _)) = self.values.last() {
+                if key.0 == env {
+                    self.values.pop().unwrap();
+                } else {
+                    break;    
+                }
             }
 
             self.parents.remove(&env);

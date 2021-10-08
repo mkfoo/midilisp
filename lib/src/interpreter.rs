@@ -160,7 +160,7 @@ impl Interpreter {
         self.env.current = lambda_env;
         let retval = self.eval_body(body)?;
         self.env.current = real_env;
-        self.env.pop(lambda_env, argc);
+        self.env.pop(lambda_env);
         Ok(retval)
     }
 
@@ -294,8 +294,10 @@ impl Interpreter {
     fn if_(&mut self, expr: AstPtr) -> Result<Value> {
         let (cond, next) = self.expect_arg(expr)?;
         let (car, cdr) = self.expect_cons(next)?;
-        let (_, nil) = self.expect_cons(cdr)?;
-        self.expect_nil(nil)?;
+        
+        if let Ok((_, nil)) = self.expect_cons(cdr) {
+            self.expect_nil(nil)?;
+        }
 
         if cond == Value::Bool(true) {
             self.eval(car)
@@ -304,20 +306,6 @@ impl Interpreter {
         } else {
             Err(Error::TypeErr)
         }
-    }
-
-    fn if_nil(&mut self, expr: AstPtr) -> Result<Value> {
-        let (car, cdr) = self.expect_cons(expr)?;
-        let id = self.expect_ident(car)?;
-        let (expr, nil) = self.expect_cons(cdr)?;
-        self.expect_nil(nil)?;
-
-        let val = match self.get(id) {
-            Ok(val) => val,
-            Err(_) => self.eval(expr)?,
-        };
-
-        Ok(val)
     }
 
     fn include(&mut self, expr: AstPtr) -> Result<Value> {
@@ -353,7 +341,7 @@ impl Interpreter {
     fn let_(&mut self, expr: AstPtr) -> Result<Value> {
         let (mut args, body) = self.expect_cons(expr)?;
         let parent_env = self.env.current;
-        let new_env = self.env.create(self.env.current);
+        let new_env = self.env.create(parent_env);
 
         while args != NIL {
             let (arg, more) = self.expect_cons(args)?;
@@ -365,8 +353,10 @@ impl Interpreter {
         }
 
         self.env.current = new_env;
+        self.env.capture = false;
         let retval = self.eval_body(body)?;
         self.env.current = parent_env;
+        self.env.pop(new_env);
         Ok(retval)
     }
 
@@ -575,7 +565,6 @@ impl Interpreter {
         self._builtin("quote", Self::quote);
         self._builtin("!", Self::bitnot);
         self._builtin("if", Self::if_);
-        self._builtin("nil?", Self::if_nil);
         self._builtin("define", Self::define);
         self._builtin("set", Self::set);
         self._builtin("let", Self::let_);
@@ -684,25 +673,21 @@ mod tests {
     }
 
     #[test]
-    fn conditionals() {
-        let src = "(if false (* 10 7) (+ 1 2))
-                   (if true (* 10 7) (+ 1 2))
-                   (if (&& true true) (+ 8 8) 6)
-                   (if (|| false false) (+ 8 8) 6)
-                   (define a 1)
-                   (define b 2)
-                   (nil? a 99)
-                   (nil? x (+ a 99))";
+    fn if_() {
+        let src = "(if true 10 99)
+                   (if false 10 99)
+                   (if (&& true true) (+ 1 9) (+ 90 9))
+                   (if (|| false false) (+ 1 9) (+ 90 9))
+                   (if true (+ 10 10))
+                   (if false (+ 10 10))";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        assert_eq!(Value::U32(3), itp.eval(exprs[0]).unwrap());
-        assert_eq!(Value::U32(70), itp.eval(exprs[1]).unwrap());
-        assert_eq!(Value::U32(16), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(6), itp.eval(exprs[3]).unwrap());
-        assert_eq!(Value::Nil, itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::U32(10), itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::U32(99), itp.eval(exprs[1]).unwrap());
+        assert_eq!(Value::U32(10), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::U32(99), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::U32(20), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::Nil, itp.eval(exprs[5]).unwrap());
-        assert_eq!(Value::U32(1), itp.eval(exprs[6]).unwrap());
-        assert_eq!(Value::U32(100), itp.eval(exprs[7]).unwrap());
     }
 
     #[test]

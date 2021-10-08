@@ -73,7 +73,6 @@ impl Parser {
     }
 
     fn cons(&mut self, lex: &mut Lexer) -> Result<AstPtr> {
-        assert!(self.stack.is_empty());
         self.stack.push(LPAR);
 
         while self.stack[0] == LPAR {
@@ -91,7 +90,6 @@ impl Parser {
             }
         }
 
-        assert_eq!(self.stack.len(), 1);
         Ok(self.stack.pop().unwrap())
     }
 
@@ -140,6 +138,19 @@ mod tests {
             Cons(car, cdr) => (car, cdr),
             _ => panic!(),
         }
+    }
+
+    #[test]
+    fn literals() {
+        let src = "5 -5 0xff 0b1010 0.5 .5";
+        let mut parser = Parser::new();
+        let exprs = parser.parse(src).unwrap();
+        assert_eq!(Atom(U32(5)), parser.get(exprs[0]));
+        assert_eq!(Atom(I32(-5)), parser.get(exprs[1]));
+        assert_eq!(Atom(U32(0xff)), parser.get(exprs[2]));
+        assert_eq!(Atom(U32(0b1010)), parser.get(exprs[3]));
+        assert_eq!(Atom(F32(0.5)), parser.get(exprs[4]));
+        assert_eq!(Atom(F32(0.5)), parser.get(exprs[5]));
     }
 
     #[test]

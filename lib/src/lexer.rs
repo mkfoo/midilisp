@@ -78,6 +78,7 @@ impl<'a> Lexer<'a> {
                 Some(c) if c.is_ascii_digit() => break self.uint(),
                 Some(c) if c.is_whitespace() => continue,
                 Some(c) if c.is_control() => continue,
+                Some('.') => break self.float(),
                 Some('(') => break self.lpar(),
                 Some(')') => break self.rpar(),
                 Some(';') => break self.comment(),
@@ -262,7 +263,7 @@ mod tests {
 
     #[test]
     fn numbers() {
-        let src = "(0) 1 256 0xc0ffee 0b110101 00000001903 -99 0.5 -9.234 123a1";
+        let src = "(0) 1 256 0xc0ffee 0b110101 00000001903 -99 0.5 .5 -9.234 123a1";
         let mut lex = Lexer::new(src);
         expect(&mut lex, LeftParen);
         expect_s(&mut lex, Uint, "0");
@@ -274,6 +275,7 @@ mod tests {
         expect_s(&mut lex, Uint, "00000001903");
         expect_s(&mut lex, Int, "-99");
         expect_s(&mut lex, Float, "0.5");
+        expect_s(&mut lex, Float, ".5");
         expect_s(&mut lex, Float, "-9.234");
         expect(&mut lex, NumError);
         assert_eq!(lex.next(), None);

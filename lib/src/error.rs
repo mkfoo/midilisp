@@ -2,6 +2,8 @@ use std::cmp::PartialEq;
 
 #[derive(thiserror::Error, Copy, Clone, Debug, PartialEq)]
 pub enum Error {
+    #[error("assertion failed")]
+    Assert,
     #[error("value cannot be applied")]
     CannotApply,
     #[error("cannot convert type: value out of range")]

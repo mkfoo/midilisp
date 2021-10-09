@@ -96,9 +96,22 @@ impl Interpreter {
             Value::Builtin(i) => self.builtins[i as usize](self, cdr),
             Value::Lambda(i) => self.call(i, cdr),
             val if cdr == NIL => Ok(val),
-            Value::U32(n) => self.repeat(n, cdr),
+            Value::I32(n) => self.repeat(n, cdr),
             _ => Err(Error::CannotApply),
         }
+    }
+
+    fn assert(&mut self, expr: AstPtr) -> Result<Value> {
+        let (lhs, cdr) = self.expect_arg(expr)?;
+        let (rhs, nil) = self.expect_arg(cdr)?;
+        self.expect_nil(nil)?;
+        
+        if lhs != rhs {
+            println!("expected {}, found {}", lhs, rhs);
+            return Err(Error::Assert);
+        }
+
+        Ok(Value::Nil)
     }
 
     fn un_op(&mut self, expr: AstPtr, f: UnOpFn) -> Result<Value> {
@@ -398,10 +411,10 @@ impl Interpreter {
         }
     }
 
-    fn repeat(&mut self, times: u32, expr: AstPtr) -> Result<Value> {
+    fn repeat(&mut self, times: i32, expr: AstPtr) -> Result<Value> {
         let mut retval = Value::Nil;
 
-        for _ in 0..times {
+        for _ in 0..times.abs() {
             retval = self.eval_body(expr)?;
         }
 
@@ -565,6 +578,7 @@ impl Interpreter {
         self._builtin("!", |i, e| i.un_op(e, Value::not));
         self._builtin("abs", |i, e| i.un_op(e, Value::abs));
         self._builtin("neg", |i, e| i.un_op(e, Value::neg));
+        self._builtin("assert", Self::assert);
         self._builtin("car", Self::car);
         self._builtin("cdr", Self::cdr);
         self._builtin("quote", Self::quote);
@@ -588,7 +602,20 @@ impl Interpreter {
 
 #[cfg(test)]
 mod tests {
+    use crate::error::Error;
     use super::{Interpreter, Value};
+
+    #[test]
+    fn assert() {
+        let src = "(assert () ())
+                   (assert 10 (+ 9 1))
+                   (assert true (&& true false))";
+        let mut itp = Interpreter::new();
+        let exprs = itp.parser.parse(src).unwrap();
+        assert_eq!(Value::Nil, itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::Nil, itp.eval(exprs[1]).unwrap());
+        assert_eq!(Error::Assert, itp.eval(exprs[2]).unwrap_err());
+    }
 
     #[test]
     fn arithmetic() {

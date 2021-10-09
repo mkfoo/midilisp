@@ -390,6 +390,8 @@ impl Interpreter {
     fn quote(&mut self, expr: AstPtr) -> Result<Value> {
         match self.parser.get(expr) {
             Expr::Atom(v @ Value::U32(_)) => Ok(v),
+            Expr::Atom(v @ Value::I32(_)) => Ok(v),
+            Expr::Atom(v @ Value::F32(_)) => Ok(v),
             Expr::Atom(v @ Value::Str(_)) => Ok(v),
             Expr::Atom(v @ Value::Nil) => Ok(v),
             _ => Ok(Value::Quote(expr)),
@@ -603,12 +605,12 @@ mod tests {
                    (neg -12)";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        assert_eq!(Value::U32(120), itp.eval(exprs[0]).unwrap());
-        assert_eq!(Value::U32(94), itp.eval(exprs[1]).unwrap());
-        assert_eq!(Value::U32(240), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(16), itp.eval(exprs[3]).unwrap());
-        assert_eq!(Value::U32(1), itp.eval(exprs[4]).unwrap());
-        assert_eq!(Value::U32(65536), itp.eval(exprs[5]).unwrap());
+        assert_eq!(Value::I32(120), itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::I32(94), itp.eval(exprs[1]).unwrap());
+        assert_eq!(Value::I32(240), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::I32(16), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::I32(1), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::I32(65536), itp.eval(exprs[5]).unwrap());
         assert_eq!(Value::I32(0), itp.eval(exprs[6]).unwrap());
         assert_eq!(Value::I32(6), itp.eval(exprs[7]).unwrap());
         assert_eq!(Value::F32(12.5), itp.eval(exprs[8]).unwrap());
@@ -626,11 +628,11 @@ mod tests {
                    (! (! (! 0xffff)))";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        assert_eq!(Value::U32(32768), itp.eval(exprs[0]).unwrap());
-        assert_eq!(Value::U32(5002), itp.eval(exprs[1]).unwrap());
-        assert_eq!(Value::U32(16), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(60), itp.eval(exprs[3]).unwrap());
-        assert_eq!(Value::U32(7), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::I32(32768), itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::I32(5002), itp.eval(exprs[1]).unwrap());
+        assert_eq!(Value::I32(16), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::I32(60), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::I32(7), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::U32(0xffff0000), itp.eval(exprs[5]).unwrap());
     }
 
@@ -671,10 +673,10 @@ mod tests {
         for n in 0..8_usize {
             itp.eval(exprs[n]).unwrap();
         }
-        assert_eq!(Value::U32(0), itp.eval(exprs[8]).unwrap());
-        assert_eq!(Value::U32(1), itp.eval(exprs[9]).unwrap());
-        assert_eq!(Value::U32(2), itp.eval(exprs[10]).unwrap());
-        assert_eq!(Value::U32(3), itp.eval(exprs[11]).unwrap());
+        assert_eq!(Value::I32(0), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::I32(1), itp.eval(exprs[9]).unwrap());
+        assert_eq!(Value::I32(2), itp.eval(exprs[10]).unwrap());
+        assert_eq!(Value::I32(3), itp.eval(exprs[11]).unwrap());
     }
 
     #[test]
@@ -705,11 +707,11 @@ mod tests {
                    (if false (+ 10 10))";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
-        assert_eq!(Value::U32(10), itp.eval(exprs[0]).unwrap());
-        assert_eq!(Value::U32(99), itp.eval(exprs[1]).unwrap());
-        assert_eq!(Value::U32(10), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(99), itp.eval(exprs[3]).unwrap());
-        assert_eq!(Value::U32(20), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::I32(10), itp.eval(exprs[0]).unwrap());
+        assert_eq!(Value::I32(99), itp.eval(exprs[1]).unwrap());
+        assert_eq!(Value::I32(10), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::I32(99), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::I32(20), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::Nil, itp.eval(exprs[5]).unwrap());
     }
 
@@ -738,10 +740,10 @@ mod tests {
         for n in 0..4_usize {
             itp.eval(exprs[n]).unwrap();
         }
-        assert_eq!(Value::U32(5), itp.eval(exprs[4]).unwrap());
-        assert_eq!(Value::U32(6), itp.eval(exprs[5]).unwrap());
-        assert_eq!(Value::U32(11), itp.eval(exprs[6]).unwrap());
-        assert_eq!(Value::U32(479001600), itp.eval(exprs[7]).unwrap());
+        assert_eq!(Value::I32(5), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::I32(6), itp.eval(exprs[5]).unwrap());
+        assert_eq!(Value::I32(11), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::I32(479001600), itp.eval(exprs[7]).unwrap());
     }
 
     #[test]
@@ -784,15 +786,15 @@ mod tests {
         for n in 0..6_usize {
             itp.eval(exprs[n]).unwrap();
         }
-        assert_eq!(Value::U32(7), itp.eval(exprs[6]).unwrap());
-        assert_eq!(Value::U32(8), itp.eval(exprs[7]).unwrap());
-        assert_eq!(Value::U32(36), itp.eval(exprs[8]).unwrap());
-        assert_eq!(Value::U32(27), itp.eval(exprs[9]).unwrap());
-        assert_eq!(Value::U32(28), itp.eval(exprs[10]).unwrap());
-        assert_eq!(Value::U32(2), itp.eval(exprs[11]).unwrap());
-        assert_eq!(Value::U32(4), itp.eval(exprs[12]).unwrap());
-        assert_eq!(Value::U32(100), itp.eval(exprs[13]).unwrap());
-        assert_eq!(Value::U32(101), itp.eval(exprs[14]).unwrap());
+        assert_eq!(Value::I32(7), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::I32(8), itp.eval(exprs[7]).unwrap());
+        assert_eq!(Value::I32(36), itp.eval(exprs[8]).unwrap());
+        assert_eq!(Value::I32(27), itp.eval(exprs[9]).unwrap());
+        assert_eq!(Value::I32(28), itp.eval(exprs[10]).unwrap());
+        assert_eq!(Value::I32(2), itp.eval(exprs[11]).unwrap());
+        assert_eq!(Value::I32(4), itp.eval(exprs[12]).unwrap());
+        assert_eq!(Value::I32(100), itp.eval(exprs[13]).unwrap());
+        assert_eq!(Value::I32(101), itp.eval(exprs[14]).unwrap());
     }
 
     #[test]
@@ -808,23 +810,23 @@ mod tests {
         let exprs = itp.parser.parse(src).unwrap();
         itp.eval(exprs[0]).unwrap();
         itp.eval(exprs[1]).unwrap();
-        assert_eq!(Value::U32(1), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(2), itp.eval(exprs[3]).unwrap());
-        assert_eq!(Value::U32(3), itp.eval(exprs[4]).unwrap());
-        assert_eq!(Value::U32(1), itp.eval(exprs[5]).unwrap());
-        assert_eq!(Value::U32(4), itp.eval(exprs[6]).unwrap());
+        assert_eq!(Value::I32(1), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::I32(2), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::I32(3), itp.eval(exprs[4]).unwrap());
+        assert_eq!(Value::I32(1), itp.eval(exprs[5]).unwrap());
+        assert_eq!(Value::I32(4), itp.eval(exprs[6]).unwrap());
     }
 
     #[test]
     fn macros() {
         let src = "(define a (macro (+ 1 2 3)))
-                   (define b (macro (+ a 6)))
+                   (define b (macro (+ a -1)))
                    a b";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
         itp.eval(exprs[0]).unwrap();
         itp.eval(exprs[1]).unwrap();
-        assert_eq!(Value::U32(6), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::U32(12), itp.eval(exprs[3]).unwrap());
+        assert_eq!(Value::I32(6), itp.eval(exprs[2]).unwrap());
+        assert_eq!(Value::I32(5), itp.eval(exprs[3]).unwrap());
     }
 }

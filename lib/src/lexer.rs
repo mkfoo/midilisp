@@ -3,18 +3,17 @@ use std::str::CharIndices;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Token {
-    Ident,
-    Str,
-    Uint,
-    Float,
-    Int,
-    Hex,
     Bin,
-    LeftParen,
-    RightParen,
-    StrError,
-    NumError,
     Eof,
+    Float,
+    Hex,
+    Ident,
+    Int,
+    LeftParen,
+    NumError,
+    RightParen,
+    Str,
+    StrError,
 }
 
 use Token::*;
@@ -75,7 +74,7 @@ impl<'a> Lexer<'a> {
 
             match opt {
                 Some('0') => break self.zero(),
-                Some(c) if c.is_ascii_digit() => break self.uint(),
+                Some(c) if c.is_ascii_digit() => break self.int(),
                 Some(c) if c.is_whitespace() => continue,
                 Some(c) if c.is_control() => continue,
                 Some('.') => break self.float(),
@@ -152,8 +151,8 @@ impl<'a> Lexer<'a> {
             Some('x') => self.hex(),
             Some('b') => self.bin(),
             Some('.') => self.float(),
-            Some(c) if c.is_ascii_digit() => self.uint(),
-            opt => self.default_ret(opt, Uint, NumError),
+            Some(c) if c.is_ascii_digit() => self.int(),
+            opt => self.default_ret(opt, Int, NumError),
         }
     }
 
@@ -164,16 +163,6 @@ impl<'a> Lexer<'a> {
                 Some(f) => self.ret(f, Ident),
                 None => self.ident(),
             },
-        }
-    }
-
-    fn uint(&mut self) -> Token {
-        loop {
-            match self.advance() {
-                Some(c) if c.is_ascii_digit() => continue,
-                Some('.') => break self.float(),
-                opt => break self.default_ret(opt, Uint, NumError),
-            }
         }
     }
 
@@ -266,13 +255,13 @@ mod tests {
         let src = "(0) 1 256 0xc0ffee 0b110101 00000001903 -99 0.5 .5 -9.234 123a1";
         let mut lex = Lexer::new(src);
         expect(&mut lex, LeftParen);
-        expect_s(&mut lex, Uint, "0");
+        expect_s(&mut lex, Int, "0");
         expect(&mut lex, RightParen);
-        expect_s(&mut lex, Uint, "1");
-        expect_s(&mut lex, Uint, "256");
+        expect_s(&mut lex, Int, "1");
+        expect_s(&mut lex, Int, "256");
         expect_s(&mut lex, Hex, "c0ffee");
         expect_s(&mut lex, Bin, "110101");
-        expect_s(&mut lex, Uint, "00000001903");
+        expect_s(&mut lex, Int, "00000001903");
         expect_s(&mut lex, Int, "-99");
         expect_s(&mut lex, Float, "0.5");
         expect_s(&mut lex, Float, ".5");
@@ -287,8 +276,8 @@ mod tests {
                    123 456 ;and this
                    0xb;and this";
         let mut lex = Lexer::new(src);
-        expect_s(&mut lex, Uint, "123");
-        expect_s(&mut lex, Uint, "456");
+        expect_s(&mut lex, Int, "123");
+        expect_s(&mut lex, Int, "456");
         expect_s(&mut lex, Hex, "b");
         assert_eq!(lex.next(), None);
     }
@@ -315,7 +304,7 @@ mod tests {
         let mut lex = Lexer::new(src);
         expect_s(&mut lex, Str, "");
         expect_s(&mut lex, Str, "foobar00");
-        expect_s(&mut lex, Uint, "029");
+        expect_s(&mut lex, Int, "029");
         expect_s(&mut lex, Str, "3#8(9;)49");
         expect(&mut lex, LeftParen);
         expect_s(&mut lex, Str, "Quux-029+Z");

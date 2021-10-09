@@ -111,8 +111,7 @@ impl Parser {
         let val = match tok {
             Ident => Value::Ident(self.add_str(s)),
             Str => Value::Str(self.add_str(s)),
-            Uint => Value::parse_unsigned(s)?,
-            Int => Value::parse_signed(s)?,
+            Int => Value::parse_int(s)?,
             Float => Value::parse_float(s)?,
             Hex => Value::parse_hex(s)?,
             Bin => Value::parse_bin(s)?,
@@ -145,7 +144,7 @@ mod tests {
         let src = "5 -5 0xff 0b1010 0.5 .5";
         let mut parser = Parser::new();
         let exprs = parser.parse(src).unwrap();
-        assert_eq!(Atom(U32(5)), parser.get(exprs[0]));
+        assert_eq!(Atom(I32(5)), parser.get(exprs[0]));
         assert_eq!(Atom(I32(-5)), parser.get(exprs[1]));
         assert_eq!(Atom(U32(0xff)), parser.get(exprs[2]));
         assert_eq!(Atom(U32(0b1010)), parser.get(exprs[3]));
@@ -159,11 +158,11 @@ mod tests {
         let mut parser = Parser::new();
         let exprs = parser.parse(src).unwrap();
         let (car, cdr) = exp_cons(&parser, exprs[0]);
-        assert_eq!(Atom(U32(1)), parser.get(car));
+        assert_eq!(Atom(I32(1)), parser.get(car));
         let (car, cdr) = exp_cons(&parser, cdr);
-        assert_eq!(Atom(U32(2)), parser.get(car));
+        assert_eq!(Atom(I32(2)), parser.get(car));
         let (car, cdr) = exp_cons(&parser, cdr);
-        assert_eq!(Atom(U32(3)), parser.get(car));
+        assert_eq!(Atom(I32(3)), parser.get(car));
         assert_eq!(NIL, cdr);
     }
 
@@ -177,10 +176,10 @@ mod tests {
         let (two, nil0) = exp_cons(&parser, cdr1);
         let (three, cdr2) = exp_cons(&parser, cdr0);
         let (four, nil1) = exp_cons(&parser, cdr2);
-        assert_eq!(Atom(U32(1)), parser.get(one));
-        assert_eq!(Atom(U32(2)), parser.get(two));
-        assert_eq!(Atom(U32(3)), parser.get(three));
-        assert_eq!(Atom(U32(4)), parser.get(four));
+        assert_eq!(Atom(I32(1)), parser.get(one));
+        assert_eq!(Atom(I32(2)), parser.get(two));
+        assert_eq!(Atom(I32(3)), parser.get(three));
+        assert_eq!(Atom(I32(4)), parser.get(four));
         assert_eq!(NIL, nil0);
         assert_eq!(NIL, nil1);
     }
@@ -191,14 +190,14 @@ mod tests {
         let mut parser = Parser::new();
         let exprs = parser.parse(src).unwrap();
         let (one, cdr) = exp_cons(&parser, exprs[0]);
-        assert_eq!(Atom(U32(1)), parser.get(one));
+        assert_eq!(Atom(I32(1)), parser.get(one));
         let (two, nil) = exp_cons(&parser, cdr);
-        assert_eq!(Atom(U32(2)), parser.get(two));
+        assert_eq!(Atom(I32(2)), parser.get(two));
         assert_eq!(NIL, nil);
         let (three, cdr) = exp_cons(&parser, exprs[1]);
-        assert_eq!(Atom(U32(3)), parser.get(three));
+        assert_eq!(Atom(I32(3)), parser.get(three));
         let (four, nil) = exp_cons(&parser, cdr);
-        assert_eq!(Atom(U32(4)), parser.get(four));
+        assert_eq!(Atom(I32(4)), parser.get(four));
         assert_eq!(NIL, nil);
     }
 

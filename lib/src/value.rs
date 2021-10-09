@@ -25,11 +25,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn parse_unsigned(s: &str) -> Result<Self> {
-        u32::from_str(s).map(Self::U32).map_err(|_| Error::ParseNum)
-    }
-
-    pub fn parse_signed(s: &str) -> Result<Self> {
+    pub fn parse_int(s: &str) -> Result<Self> {
         i32::from_str(s).map(Self::I32).map_err(|_| Error::ParseNum)
     }
 
@@ -95,19 +91,11 @@ impl Value {
     }
 
     pub fn to_u7(self) -> Result<u8> {
-        match self {
-            Self::U32(i) => Ok((i & 0x7f) as u8),
-            Self::Nil => Err(Error::NilArgument),
-            _ => Err(Error::NotANumber),
-        }
+        self.to_u32().map(|v| (v & 0x7f) as u8)
     }
 
     pub fn to_u16(self) -> Result<u16> {
-        match self {
-            Self::U32(i) => Ok((i & 0xffff) as u16),
-            Self::Nil => Err(Error::NilArgument),
-            _ => Err(Error::NotANumber),
-        }
+        self.to_u32().map(|v| (v & 0xffff) as u16)
     }
 
     pub fn abs(self) -> Result<Self> {
@@ -334,9 +322,9 @@ impl fmt::Display for Value {
             Self::Nil => write!(f, "()"),
             Self::Quote(_) => write!(f, "<quote>"),
             Self::Str(_) => write!(f, "<str>"),
-            Self::U32(n) => write!(f, "{}", n),
-            Self::I32(n) => write!(f, "{}", n),
-            Self::F32(n) => write!(f, "{}", n),
+            Self::U32(n) => write!(f, "u32({})", n),
+            Self::I32(n) => write!(f, "i32({})", n),
+            Self::F32(n) => write!(f, "f32({})", n),
         }
     }
 }

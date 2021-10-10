@@ -34,10 +34,26 @@
             (note-on chn num 0))
         (adv-clock trk (delta dur))))
 
-(define program
-    (lambda (prg)
+(define cc7
+    (lambda (id val)
         (put-event trk 0
-            (program-change chn prg))))
+            (control-change chn id val))))
+
+(define cc14
+    (lambda (id val)
+        (put-event trk 0
+            (control-change chn (+ id 32) (& val 0x7f)))
+        (put-event trk 0
+            (control-change chn id (>> (& val 0x3fff) 7)))))
+
+(define program
+    (lambda (p)
+        (define prog
+            (if (<= p 0)
+                0
+                (- p 1)))
+        (put-event trk 0
+            (program-change chn prog))))
 
 (define tempo
     (lambda (tmp)

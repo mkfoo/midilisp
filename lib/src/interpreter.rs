@@ -451,6 +451,14 @@ impl Interpreter {
         self.add_event(Event::NoteOn(chn, num, vel))
     }
 
+    fn control_change(&mut self, next: AstPtr) -> Result<Value> {
+        let (chn, next) = self.expect_u7(next)?;
+        let (id, next) = self.expect_u7(next)?;
+        let (val, next) = self.expect_u7(next)?;
+        self.expect_nil(next)?;
+        self.add_event(Event::ControlChange(chn, id, val))
+    }
+
     fn program_change(&mut self, next: AstPtr) -> Result<Value> {
         let (chn, next) = self.expect_u7(next)?;
         let (prg, next) = self.expect_u7(next)?;
@@ -592,6 +600,7 @@ impl Interpreter {
         self._builtin("lambda", Self::lambda);
         self._builtin("note-off", Self::note_off);
         self._builtin("note-on", Self::note_on);
+        self._builtin("control-change", Self::control_change);
         self._builtin("program-change", Self::program_change);
         self._builtin("set-tempo", Self::set_tempo);
         self._builtin("time-signature", Self::time_signature);

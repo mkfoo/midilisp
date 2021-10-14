@@ -12,3 +12,4 @@ Cargo.lock
 *.sh
 *.mid
 target
+*.wasm

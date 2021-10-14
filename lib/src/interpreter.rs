@@ -8,7 +8,6 @@ use crate::{
 use fnv::FnvBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 use std::convert::TryInto;
-use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -497,6 +496,7 @@ impl Interpreter {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn _include(&mut self, id: StrId) -> Result<()> {
+        use std::fs;
         let mut path = PathBuf::from(self.parser.get_str(id));
 
         if !path.exists() {

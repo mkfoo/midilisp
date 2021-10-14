@@ -60,9 +60,9 @@ fn call_midilisp(src: &str) -> WasmResult {
             if !vec.is_empty() {
                 Ok(vec)
             } else {
-                Err(retval.to_string().into_bytes())
+                Err(format!("Ok: {}", retval).into_bytes())
             }
         }
-        Err(e) => Err(e.to_string().into_bytes()),
+        Err(e) => Err(format!("Err: {}", e).into_bytes()),
     }
 }

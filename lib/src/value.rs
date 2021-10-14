@@ -322,9 +322,9 @@ impl fmt::Display for Value {
             Self::Nil => write!(f, "()"),
             Self::Quote(_) => write!(f, "<quote>"),
             Self::Str(_) => write!(f, "<str>"),
-            Self::U32(n) => write!(f, "u32({})", n),
-            Self::I32(n) => write!(f, "i32({})", n),
-            Self::F32(n) => write!(f, "f32({})", n),
+            Self::U32(n) => write!(f, "{}", n),
+            Self::I32(n) => write!(f, "{}", n),
+            Self::F32(n) => write!(f, "{}", n),
         }
     }
 }

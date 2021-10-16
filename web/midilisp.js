@@ -1,14 +1,15 @@
+const editorConfig = { lineNumbers: true };
+
 class Midilisp {
     constructor() {
-        this.input = document.getElementById("input-text");
+        const text = document.getElementById("input-text");
+        this.editor = CodeMirror.fromTextArea(text, editorConfig);
         this.output = document.getElementById("output-text");
         this.filename = document.getElementById("filename-text");
         this.dLink = document.getElementById("dl-link");
-        this.runBtn = document.getElementById("run-btn");
         this.saveBtn = document.getElementById("save-btn");
-        this.input.value = "";
-        this.output.value = "";
-        this.filename.value = "";
+        this.helpBtn = document.getElementById("help-btn");
+        this.helpText = document.getElementById("help-text");
         this.loadWASM().catch((err) => {
             this.logOutput(`Err: ${err.message}`);
         });
@@ -19,7 +20,9 @@ class Midilisp {
         this.mod = await WebAssembly.compileStreaming(fetch("midilisp.wasm"));
         this.logOutput("Ok");
 
-        this.runBtn.addEventListener("click", (_e) => {
+        const runBtn = document.getElementById("run-btn");
+
+        runBtn.addEventListener("click", (_e) => {
             this.run()
                 .catch((err) => {
                     this.logOutput(`Err: ${err.message}`);
@@ -29,12 +32,26 @@ class Midilisp {
         this.saveBtn.addEventListener("click", (_e) => {
             this.dLink.click();
         });
+
+        this.helpBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+
+            if (this.helpText.hidden) {
+                this.helpBtn.textContent = "Hide help";
+                this.helpText.hidden = false;
+            } else {
+                this.helpBtn.textContent = "Help";
+                this.helpText.hidden = true;
+            }
+        });
     }
 
     async run() {
-        if (this.input.value && this.mod) {
+        const src = this.editor.getValue();
+
+        if (src && this.mod) {
             this.inst = await WebAssembly.instantiate(this.mod);
-            const [ptr, len] = this.exportString(this.input.value);
+            const [ptr, len] = this.exportString(src);
             const result = this.inst.exports.run(ptr, len);
 
             if (this.inst.exports.isOk(result)) {

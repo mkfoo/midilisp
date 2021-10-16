@@ -1,4 +1,4 @@
-const editorConfig = { lineNumbers: true };
+const editorConfig = { lineNumbers: true, matchBrackets: true };
 
 class Midilisp {
     constructor() {

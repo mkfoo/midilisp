@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 use std::convert::TryInto;
+use std::slice::Iter;
 
 const NOTE_OFF: u8 = 0x80;
 const NOTE_ON: u8 = 0x90;
@@ -85,7 +86,7 @@ pub struct Track {
     prev_t: u32,
     status: u8,
     queue: Vec<TrackEvent>,
-    data: Vec<u8>,
+    buf: Vec<u8>,
 }
 
 impl Track {
@@ -95,7 +96,7 @@ impl Track {
             prev_t: 0,
             status: 0,
             queue: Vec::new(),
-            data: vec![0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 0],
+            buf: vec![0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 0],
         }
     }
 
@@ -114,13 +115,14 @@ impl Track {
         while !self.queue.is_empty() {
             self.advance(96)?;
         }
+
         self.put_event(0, Event::EndOfTrack)?;
         self.update_len()?;
-        Ok(&self.data)
+        Ok(&self.buf)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data.len() <= 8
+        self.buf.len() <= 8
     }
 
     pub fn put_event(&mut self, delta_t: u32, event: Event) -> Result<()> {
@@ -139,17 +141,17 @@ impl Track {
     }
 
     fn update_len(&mut self) -> Result<()> {
-        let len: u32 = (self.data.len() - 8)
+        let len: u32 = (self.buf.len() - 8)
             .try_into()
             .map_err(|_| Error::TrackTooLong)?;
         let b = len.to_be_bytes();
-        self.data[4..8].copy_from_slice(&b);
+        self.buf[4..8].copy_from_slice(&b);
         Ok(())
     }
 
     fn write_event(&mut self, time: u32, event: Event) {
         let delta_t = time - self.prev_t;
-        self.write_var_len(delta_t);
+        self.buf.write_var_len(delta_t);
         self.prev_t = time;
         use Event::*;
 
@@ -169,7 +171,7 @@ impl Track {
     }
 
     fn write(&mut self, b: &[u8]) {
-        self.data.extend(b.iter());
+        self.buf.extend(b.iter());
     }
 
     fn cvm(&mut self, b: &[u8]) {
@@ -183,36 +185,58 @@ impl Track {
 
     fn meta(&mut self, id: u8, data: &[u8]) {
         self.write(&[0xff, id]);
-        self.write_var_len(data.len() as u32);
+        self.buf.write_var_len(data.len() as u32);
         self.write(data);
         self.status = 0;
     }
+}
 
-    fn write_var_len(&mut self, v: u32) {
-        let mut val = v & 0x0fffffff;
-        let mut buf = val & 0x7f;
-        loop {
-            val >>= 7;
-            if val == 0 {
-                break;
-            }
-            buf <<= 8;
-            buf |= 0x80;
-            buf += val & 0x7f;
+pub trait WriteVarLen {
+    fn write_var_len(&mut self, val: u32);
+}
+
+pub trait ReadVarLen {
+    fn read_var_len(&mut self) -> u32;
+}
+
+impl WriteVarLen for Vec<u8> {
+    fn write_var_len(&mut self, val: u32) {
+        let mut offset = match val {
+            0..=0x7f => 0,
+            0x80..=0x3fff => 1,
+            0x4000..=0x1fffff => 2,
+            _ => 3,
+        };
+
+        while offset != 0 {
+            let shift_by = offset * 7;
+            let u7 = ((val >> shift_by) & 0x7f) as u8;
+            self.push(u7 | 0x80);
+            offset -= 1;
         }
-        loop {
-            self.write(&[(buf & 0xff) as u8]);
-            if buf & 0x80 == 0 {
-                break;
-            }
-            buf >>= 8;
+
+        self.push((val & 0x7f) as u8);
+    }
+}
+
+impl ReadVarLen for Iter<'_, u8> {
+    fn read_var_len(&mut self) -> u32 {
+        let mut byte = *self.next().expect("BUG: unexpected end of chunk");
+        let mut val = (byte & 0x7f) as u32;
+
+        while byte & 0x80 != 0 {
+            val <<= 7;
+            byte = *self.next().expect("BUG: unexpected end of chunk");
+            val += (byte & 0x7f) as u32;
         }
+
+        val
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::{Event, Header, Track};
+    use super::{Event, Header, ReadVarLen, Track, WriteVarLen};
 
     pub const FILE0: &[u8] = &[
         0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x60, 0x4d,
@@ -234,10 +258,16 @@ pub mod tests {
         0x3c, 0x60, 0x83, 0x00, 0x30, 0x00, 0x00, 0x3c, 0x00, 0x00, 0xff, 0x2f, 0x00,
     ];
 
+    const VAR_LEN: &[u8] = &[
+        0x00, 0x40, 0x7f, 0x81, 0x00, 0xc0, 0x00, 0xff, 0x7f, 0x81, 0x80, 0x00, 0xc0, 0x80, 0x00,
+        0xff, 0xff, 0x7f, 0x81, 0x80, 0x80, 0x00, 0xc0, 0x80, 0x80, 0x00, 0xff, 0xff, 0xff, 0x7f,
+    ];
+
     pub fn bindiff(a: &[u8], b: &[u8]) {
         if a != b {
             let mut left = String::new();
             let mut right = String::new();
+
             for (l, r) in a.chunks(10).zip(b.chunks(10)) {
                 for (i, lb) in l.iter().enumerate() {
                     left.push_str(&format!("{:02x} ", lb));
@@ -247,12 +277,49 @@ pub mod tests {
                         None => right.push_str(&"\x1b[31m-- "),
                     }
                 }
+
                 println!("{:<31}  {:<31}\x1b[0m", left, right);
                 left.clear();
                 right.clear();
             }
+
             panic!();
         }
+    }
+
+    #[test]
+    fn write_var_len() {
+        let mut v = Vec::new();
+        v.write_var_len(0);
+        v.write_var_len(0x40);
+        v.write_var_len(0x7f);
+        v.write_var_len(0x80);
+        v.write_var_len(0x2000);
+        v.write_var_len(0x3fff);
+        v.write_var_len(0x4000);
+        v.write_var_len(0x100000);
+        v.write_var_len(0x1fffff);
+        v.write_var_len(0x200000);
+        v.write_var_len(0x8000000);
+        v.write_var_len(0xfffffff);
+        bindiff(VAR_LEN, &v);
+    }
+
+    #[test]
+    fn read_var_len() {
+        let mut iter = VAR_LEN.iter();
+        assert_eq!(iter.read_var_len(), 0);
+        assert_eq!(iter.read_var_len(), 0x40);
+        assert_eq!(iter.read_var_len(), 0x7f);
+        assert_eq!(iter.read_var_len(), 0x80);
+        assert_eq!(iter.read_var_len(), 0x2000);
+        assert_eq!(iter.read_var_len(), 0x3fff);
+        assert_eq!(iter.read_var_len(), 0x4000);
+        assert_eq!(iter.read_var_len(), 0x100000);
+        assert_eq!(iter.read_var_len(), 0x1fffff);
+        assert_eq!(iter.read_var_len(), 0x200000);
+        assert_eq!(iter.read_var_len(), 0x8000000);
+        assert_eq!(iter.read_var_len(), 0xfffffff);
     }
 
     #[test]

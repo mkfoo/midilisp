@@ -104,7 +104,7 @@ impl Interpreter {
         let (lhs, cdr) = self.expect_arg(expr)?;
         let (rhs, nil) = self.expect_arg(cdr)?;
         self.expect_nil(nil)?;
-        
+
         if lhs != rhs {
             println!("expected {}, found {}", lhs, rhs);
             return Err(Error::Assert);
@@ -273,7 +273,6 @@ impl Interpreter {
 
     fn get(&mut self, id: u32) -> Result<Value> {
         match self.env.get(id) {
-            Some(Value::Macro(e)) => self.eval(e),
             Some(val) => Ok(val),
             None => {
                 let s = self.parser.get_str(id);
@@ -373,10 +372,8 @@ impl Interpreter {
         Ok(retval)
     }
 
-    fn macro_(&mut self, expr: AstPtr) -> Result<Value> {
-        let (car, nil) = self.expect_cons(expr)?;
-        self.expect_nil(nil)?;
-        Ok(Value::Macro(car))
+    fn macro_(&mut self, _expr: AstPtr) -> Result<Value> {
+        todo!();
     }
 
     fn print(&mut self, expr: AstPtr) -> Result<Value> {
@@ -611,8 +608,8 @@ impl Interpreter {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::Error;
     use super::{Interpreter, Value};
+    use crate::error::Error;
 
     #[test]
     fn assert() {

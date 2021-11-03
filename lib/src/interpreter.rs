@@ -372,10 +372,6 @@ impl Interpreter {
         Ok(retval)
     }
 
-    fn macro_(&mut self, _expr: AstPtr) -> Result<Value> {
-        todo!();
-    }
-
     fn print(&mut self, expr: AstPtr) -> Result<Value> {
         let (car, nil) = self.expect_cons(expr)?;
         self.expect_nil(nil)?;
@@ -602,7 +598,6 @@ impl Interpreter {
         self._builtin("set-tempo", Self::set_tempo);
         self._builtin("time-signature", Self::time_signature);
         self._builtin("put-event", Self::put_event);
-        self._builtin("macro", Self::macro_);
     }
 }
 
@@ -848,18 +843,5 @@ mod tests {
         assert_eq!(Value::I32(3), itp.eval(exprs[4]).unwrap());
         assert_eq!(Value::I32(1), itp.eval(exprs[5]).unwrap());
         assert_eq!(Value::I32(4), itp.eval(exprs[6]).unwrap());
-    }
-
-    #[test]
-    fn macros() {
-        let src = "(define a (macro (+ 1 2 3)))
-                   (define b (macro (+ a -1)))
-                   a b";
-        let mut itp = Interpreter::new();
-        let exprs = itp.parser.parse(src).unwrap();
-        itp.eval(exprs[0]).unwrap();
-        itp.eval(exprs[1]).unwrap();
-        assert_eq!(Value::I32(6), itp.eval(exprs[2]).unwrap());
-        assert_eq!(Value::I32(5), itp.eval(exprs[3]).unwrap());
     }
 }

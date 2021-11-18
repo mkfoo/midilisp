@@ -16,22 +16,19 @@
         (adv-clock trk (delta dur))))
 
 (define on
-    (lambda (chn num vel)
-        (put-event trk 0
+    (lambda (num del vel)
+        (put-event trk del
             (note-on chn num vel))))
 
 (define off
-    (lambda (chn num vel)
-        (put-event trk 0
+    (lambda (num del vel)
+        (put-event trk del
             (note-off chn num vel))))
 
 (define note
     (lambda (num dur art vel)
-        (put-event trk 0 
-            (note-on chn num vel))
-        (put-event trk 
-            (delta art) 
-            (note-on chn num 0))
+        (on num 0 vel)
+        (on num (delta art) 0)
         (adv-clock trk (delta dur))))
 
 (define cc7

@@ -79,25 +79,26 @@ mod tests {
 
     #[test]
     fn fmt0_lib() {
-        let src = "(include \"include/default\")
+        let src = "(include \"default\")
                    (time 4 2 24 8)
                    (tempo 120)
+                   (set chn 0)
                    (program 6)
+                   (on 76 192 32)
                    (set chn 1)
                    (program 47)
+                   (on 67 96 64)
                    (set chn 2)
                    (program 71)
-                   (on 2 48 96)
-                   (on 2 60 96)
-                   (rest 4)
-                   (on 1 67 64)
-                   (rest 4)
-                   (on 0 76 32)
-                   (rest 2)
-                   (off 2 48 64)
-                   (off 2 60 64)
-                   (off 1 67 64)
-                   (off 0 76 64)";
+                   (on 48 0 96)
+                   (on 60 0 96)
+                   (rest 1)
+                   (off 48 0 64)
+                   (off 60 0 64)
+                   (set chn 1)
+                   (off 67 0 64)
+                   (set chn 0)
+                   (off 76 0 64)";
         let mut w = Cursor::new(Vec::new());
         run(&mut w, src).unwrap();
         bindiff(FILE0, &w.into_inner());
@@ -105,7 +106,7 @@ mod tests {
 
     #[test]
     fn fmt1_lib() {
-        let src = "(include \"include/default\")
+        let src = "(include \"default\")
                    (set fmt 1)
                    (time 4 2 24 8)
                    (tempo 120)

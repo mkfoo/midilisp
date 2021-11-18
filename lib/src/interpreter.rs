@@ -11,6 +11,8 @@ use std::convert::TryInto;
 use std::io::Write;
 use std::path::PathBuf;
 
+const INCLUDE_PATH: &str = "./include";
+
 type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
 type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
@@ -490,7 +492,13 @@ impl Interpreter {
     #[cfg(not(target_arch = "wasm32"))]
     fn _include(&mut self, id: StrId) -> Result<()> {
         use std::fs;
-        let mut path = PathBuf::from(self.parser.get_str(id));
+        use std::env;
+
+        let mut path: PathBuf = env::var_os("MIDILISP_INCLUDE_PATH")
+            .map(|s| PathBuf::from(s))
+            .unwrap_or_else(|| PathBuf::from(INCLUDE_PATH));
+
+        path.push(self.parser.get_str(id));
 
         if !path.exists() {
             path.set_extension("midilisp");

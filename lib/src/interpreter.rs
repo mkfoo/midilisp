@@ -491,11 +491,11 @@ impl Interpreter {
 
     #[cfg(not(target_arch = "wasm32"))]
     fn _include(&mut self, id: StrId) -> Result<()> {
-        use std::fs;
         use std::env;
+        use std::fs;
 
         let mut path: PathBuf = env::var_os("MIDILISP_INCLUDE_PATH")
-            .map(|s| PathBuf::from(s))
+            .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from(INCLUDE_PATH));
 
         path.push(self.parser.get_str(id));

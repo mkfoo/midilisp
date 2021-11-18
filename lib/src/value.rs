@@ -90,12 +90,31 @@ impl Value {
         }
     }
 
+    pub fn clamp(self, max: u32) -> Result<Self> {
+        match self {
+            U32(v) => Ok(U32(v.min(max))),
+            I32(v) => Ok(I32(v.max(0).min(max as i32))),
+            F32(v) => Ok(F32(v.clamp(0.0, max as f32))),
+            _ => Err(Error::TypeErr),
+        }
+    }
+
     pub fn to_u7(self) -> Result<u8> {
-        self.to_u32().map(|v| (v & 0x7f) as u8)
+        Ok(match self.clamp(0x7f)? {
+            U32(v) => v as u8,
+            I32(v) => v as u8,
+            F32(v) => v as u8,
+            _ => unreachable!(),
+        })
     }
 
     pub fn to_u16(self) -> Result<u16> {
-        self.to_u32().map(|v| (v & 0xffff) as u16)
+        Ok(match self.clamp(0xffff)? {
+            U32(v) => v as u16,
+            I32(v) => v as u16,
+            F32(v) => v as u16,
+            _ => unreachable!(),
+        })
     }
 
     pub fn abs(self) -> Result<Self> {

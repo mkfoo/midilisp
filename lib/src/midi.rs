@@ -272,7 +272,9 @@ pub mod tests {
                 for (i, lb) in l.iter().enumerate() {
                     left.push_str(&format!("{:02x} ", lb));
                     match r.get(i) {
-                        Some(rb) if lb == rb && rb > &127 => right.push_str(&format!("\x1b[34m{:02x} ", rb)),
+                        Some(rb) if lb == rb && rb > &127 => {
+                            right.push_str(&format!("\x1b[34m{:02x} ", rb))
+                        }
                         Some(rb) if lb == rb => right.push_str(&format!("\x1b[32m{:02x} ", rb)),
                         Some(rb) if rb > &127 => right.push_str(&format!("\x1b[35m{:02x} ", rb)),
                         Some(rb) => right.push_str(&format!("\x1b[31m{:02x} ", rb)),

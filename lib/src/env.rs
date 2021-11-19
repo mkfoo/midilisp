@@ -42,7 +42,7 @@ impl EnvStore {
     }
 
     pub fn pop(&mut self, env: u32) {
-        if !self.capture {
+        if !self.capture && env != self.current {
             while let Some((key, _)) = self.values.last() {
                 if key.0 == env {
                     self.values.pop().unwrap();

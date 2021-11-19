@@ -170,13 +170,7 @@ impl Interpreter {
             return Err(Error::NilArgument);
         }
 
-        let real_env = self.env.current;
-        self.env.capture = false;
-        self.env.current = lambda_env;
-        let retval = self.eval_body(body)?;
-        self.env.current = real_env;
-        self.env.pop(lambda_env);
-        Ok(retval)
+        self.eval_body(body, lambda_env)
     }
 
     fn car(&mut self, expr: AstPtr) -> Result<Value> {
@@ -212,8 +206,11 @@ impl Interpreter {
         }
     }
 
-    fn eval_body(&mut self, mut next: AstPtr) -> Result<Value> {
+    fn eval_body(&mut self, mut next: AstPtr, lambda_env: u32) -> Result<Value> {
         let mut retval = Value::Nil;
+        let real_env = self.env.current;
+        self.env.current = lambda_env;
+        self.env.capture = false;
 
         while next != NIL {
             let (expr, more) = self.expect_cons(next)?;
@@ -221,6 +218,8 @@ impl Interpreter {
             next = more;
         }
 
+        self.env.current = real_env;
+        self.env.pop(lambda_env);
         Ok(retval)
     }
 
@@ -354,8 +353,7 @@ impl Interpreter {
 
     fn let_(&mut self, expr: AstPtr) -> Result<Value> {
         let (mut args, body) = self.expect_cons(expr)?;
-        let parent_env = self.env.current;
-        let new_env = self.env.create(parent_env);
+        let new_env = self.env.create(self.env.current);
 
         while args != NIL {
             let (arg, more) = self.expect_cons(args)?;
@@ -366,25 +364,39 @@ impl Interpreter {
             args = more;
         }
 
-        self.env.current = new_env;
-        self.env.capture = false;
-        let retval = self.eval_body(body)?;
-        self.env.current = parent_env;
-        self.env.pop(new_env);
-        Ok(retval)
+        self.eval_body(body, new_env)
     }
 
     fn print(&mut self, expr: AstPtr) -> Result<Value> {
-        let (car, nil) = self.expect_cons(expr)?;
-        self.expect_nil(nil)?;
+        self._print(expr, 'd')
+    }
 
-        match self.eval(car)? {
-            Value::Str(id) => {
-                let s = self.parser.get_str(id);
-                println!("{}", s);
+    fn printx(&mut self, expr: AstPtr) -> Result<Value> {
+        self._print(expr, 'x')
+    }
+
+    fn printb(&mut self, expr: AstPtr) -> Result<Value> {
+        self._print(expr, 'b')
+    }
+
+    fn _print(&mut self, mut expr: AstPtr, fmt: char) -> Result<Value> {
+        while expr != NIL {
+            let (car, cdr) = self.expect_cons(expr)?;
+
+            match (self.eval(car)?, fmt) {
+                (Value::Str(id), _) => {
+                    let s = self.parser.get_str(id);
+                    print!("{} ", s);
+                }
+                (val, 'x') => print!("{:#x} ", val),
+                (val, 'b') => print!("{:#b} ", val),
+                (val, _) => print!("{} ", val),
             }
-            val => println!("{}", val),
+
+            expr = cdr;
         }
+
+        println!();
         Ok(Value::Nil)
     }
 
@@ -409,7 +421,7 @@ impl Interpreter {
         let mut retval = Value::Nil;
 
         for _ in 0..times.abs() {
-            retval = self.eval_body(expr)?;
+            retval = self.eval_body(expr, self.env.current)?;
         }
 
         Ok(retval)
@@ -596,6 +608,8 @@ impl Interpreter {
         self._builtin("set", Self::set);
         self._builtin("let", Self::let_);
         self._builtin("print", Self::print);
+        self._builtin("printx", Self::printx);
+        self._builtin("printb", Self::printx);
         self._builtin("include", Self::include);
         self._builtin("adv-clock", Self::adv_clock);
         self._builtin("lambda", Self::lambda);

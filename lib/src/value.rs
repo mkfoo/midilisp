@@ -16,7 +16,6 @@ pub enum Value {
     I32(i32),
     Ident(StrId),
     Lambda(u32),
-    Macro(AstPtr),
     Midi(u32),
     Nil,
     Quote(AstPtr),
@@ -332,18 +331,38 @@ impl Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bool(b) => write!(f, "{}", b),
+            Self::Bool(b) => fmt::Display::fmt(&b, f),
             Self::Builtin(_) => write!(f, "<builtin>"),
             Self::Ident(_) => write!(f, "<ident>"),
             Self::Lambda(_) => write!(f, "<lambda>"),
-            Self::Macro(_) => write!(f, "<macro>"),
             Self::Midi(_) => write!(f, "<midi event>"),
             Self::Nil => write!(f, "()"),
             Self::Quote(_) => write!(f, "<quote>"),
             Self::Str(_) => write!(f, "<str>"),
-            Self::U32(n) => write!(f, "{}", n),
-            Self::I32(n) => write!(f, "{}", n),
-            Self::F32(n) => write!(f, "{}", n),
+            Self::U32(n) => fmt::Display::fmt(&n, f),
+            Self::I32(n) => fmt::Display::fmt(&n, f),
+            Self::F32(n) => fmt::Display::fmt(&n, f),
         }
     }
 }
+
+impl fmt::LowerHex for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::U32(n) => fmt::LowerHex::fmt(&n, f),
+            Self::I32(n) => fmt::LowerHex::fmt(&n, f),
+            val => fmt::Display::fmt(&val, f),
+        }
+    }
+}
+
+impl fmt::Binary for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::U32(n) => fmt::Binary::fmt(&n, f),
+            Self::I32(n) => fmt::Binary::fmt(&n, f),
+            val => fmt::Display::fmt(&val, f),
+        }
+    }
+}
+

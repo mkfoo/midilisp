@@ -2,15 +2,12 @@ use crate::{
     error::{Error, Result},
     lexer::{Lexer, Token},
     value::Value,
+    FnvIndexSet,
 };
-use fnv::FnvBuildHasher;
-use indexmap::IndexSet;
 use smol_str::SmolStr;
+use std::cmp::PartialEq;
 use Token::*;
 
-use std::cmp::PartialEq;
-
-type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 pub type AstPtr = u32;
 pub type StrId = u32;
 pub const NIL: AstPtr = 0;
@@ -26,6 +23,7 @@ pub struct Parser {
     ast: Vec<Expr>,
     stack: Vec<AstPtr>,
     strings: FnvIndexSet<SmolStr>,
+    pub line: Option<u32>,
 }
 
 impl Parser {
@@ -34,6 +32,7 @@ impl Parser {
             ast: vec![Expr::Atom(Value::Nil), Expr::Atom(Value::Nil)],
             stack: Vec::new(),
             strings: Default::default(),
+            line: Some(1),
         }
     }
 
@@ -62,6 +61,8 @@ impl Parser {
         let mut exprs = Vec::new();
 
         while let Some(tok) = lex.next() {
+            self.line = Some(lex.line);
+
             match tok {
                 LeftParen => exprs.push(self.cons(&mut lex)?),
                 RightParen => return Err(Error::InvalidParen),
@@ -69,6 +70,7 @@ impl Parser {
             }
         }
 
+        self.line = None;
         Ok(exprs)
     }
 
@@ -76,7 +78,10 @@ impl Parser {
         self.stack.push(LPAR);
 
         while self.stack[0] == LPAR {
-            match lex.next() {
+            let tok = lex.next();
+            self.line = Some(lex.line);
+
+            match tok {
                 Some(LeftParen) => self.stack.push(LPAR),
                 Some(RightParen) => {
                     let cons = self.fold()?;

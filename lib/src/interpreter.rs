@@ -1,25 +1,22 @@
 use crate::{
     env::EnvStore,
-    error::{Error, Result},
+    error::{Error, Result, WithContext},
     midi::{Event, Header, Track},
     parser::{AstPtr, Expr, Parser, StrId, NIL},
     value::Value,
+    FnvIndexSet,
 };
-use fnv::FnvBuildHasher;
-use indexmap::{IndexMap, IndexSet};
 use std::convert::TryInto;
 use std::io::Write;
 use std::path::PathBuf;
 
 const INCLUDE_PATH: &str = "./include";
 
-type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
-type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
 type UnOpFn = fn(Value) -> Result<Value>;
 type OpFn = fn(Value, Value) -> Result<Value>;
 
-struct Lambda(u32, Box<[u32]>, AstPtr);
+struct Lambda(u32, Box<[StrId]>, AstPtr);
 
 pub struct Interpreter {
     parser: Parser,
@@ -29,6 +26,7 @@ pub struct Interpreter {
     lambdas: Vec<Lambda>,
     events: FnvIndexSet<Event>,
     tracks: Vec<Track>,
+    c_ident: Option<StrId>,
 }
 
 impl Interpreter {
@@ -41,6 +39,7 @@ impl Interpreter {
             lambdas: Vec::new(),
             events: Default::default(),
             tracks: Vec::new(),
+            c_ident: None,
         };
         itp._define_builtins();
         itp
@@ -58,9 +57,18 @@ impl Interpreter {
         Ok(retval)
     }
 
+    pub fn get_context(&self, err: Error) -> WithContext {
+        WithContext {
+            line: self.parser.line,
+            ident: self.c_ident.map(|i| self.parser.get_str(i).to_string()),
+            source: err,
+        }
+    }
+
     fn write_out<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         let fmt: u16 = self.get(0).map(|v| v.to_u16().unwrap_or(0))?;
-
+        let div: u16 = self.get(1).map(|v| v.to_u16().unwrap_or(96))?;
+        self.c_ident = None;
         let ntrks: u16 = self
             .tracks
             .iter()
@@ -68,8 +76,6 @@ impl Interpreter {
             .count()
             .try_into()
             .map_err(|_| Error::TooManyTracks)?;
-
-        let div: u16 = self.get(1).map(|v| v.to_u16().unwrap_or(96))?;
 
         if ntrks > 0 {
             let header = Header::new(fmt, ntrks, div)?;
@@ -103,12 +109,10 @@ impl Interpreter {
     }
 
     fn assert(&mut self, expr: AstPtr) -> Result<Value> {
-        let (lhs, cdr) = self.expect_arg(expr)?;
-        let (rhs, nil) = self.expect_arg(cdr)?;
+        let (val, nil) = self.expect_arg(expr)?;
         self.expect_nil(nil)?;
 
-        if lhs != rhs {
-            println!("expected {}, found {}", lhs, rhs);
+        if val != Value::Bool(true) {
             return Err(Error::Assert);
         }
 
@@ -272,15 +276,9 @@ impl Interpreter {
         Ok((self.eval(car)?.to_u7()?, cdr))
     }
 
-    fn get(&mut self, id: u32) -> Result<Value> {
-        match self.env.get(id) {
-            Some(val) => Ok(val),
-            None => {
-                let s = self.parser.get_str(id);
-                println!("undefined variable '{}'", s);
-                Err(Error::Undefined)
-            }
-        }
+    fn get(&mut self, id: StrId) -> Result<Value> {
+        self.c_ident = Some(id);
+        self.env.get(id).ok_or(Error::Undefined)
     }
 
     fn get_arg_id(&self, lambda: u32, argc: u32) -> Option<u32> {
@@ -609,7 +607,7 @@ impl Interpreter {
         self._builtin("let", Self::let_);
         self._builtin("print", Self::print);
         self._builtin("printx", Self::printx);
-        self._builtin("printb", Self::printx);
+        self._builtin("printb", Self::printb);
         self._builtin("include", Self::include);
         self._builtin("adv-clock", Self::adv_clock);
         self._builtin("lambda", Self::lambda);
@@ -630,9 +628,9 @@ mod tests {
 
     #[test]
     fn assert() {
-        let src = "(assert () ())
-                   (assert 10 (+ 9 1))
-                   (assert true (&& true false))";
+        let src = "(assert true)
+                   (assert (&& true true))
+                   (assert (|| false false))";
         let mut itp = Interpreter::new();
         let exprs = itp.parser.parse(src).unwrap();
         assert_eq!(Value::Nil, itp.eval(exprs[0]).unwrap());

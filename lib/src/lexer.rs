@@ -26,7 +26,7 @@ pub struct Lexer<'a> {
     src: &'a str,
     start: usize,
     end: usize,
-    line: u32,
+    pub line: u32,
 }
 
 impl<'a> Lexer<'a> {

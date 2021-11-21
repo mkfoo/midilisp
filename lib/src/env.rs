@@ -1,8 +1,5 @@
 use crate::value::Value;
-use fnv::FnvBuildHasher;
-use indexmap::IndexMap;
-
-type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
+use crate::FnvIndexMap;
 
 pub struct EnvStore {
     count: u32,

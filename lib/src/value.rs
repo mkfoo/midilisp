@@ -365,4 +365,3 @@ impl fmt::Binary for Value {
         }
     }
 }
-

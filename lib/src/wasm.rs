@@ -53,16 +53,16 @@ pub extern "C" fn run(ptr: *const u8, len: usize) -> *const WasmResult {
 fn call_midilisp(src: &str) -> WasmResult {
     let mut w = Cursor::new(Vec::new());
 
-    match crate::run(&mut w, src) {
+    match super::run(&mut w, src) {
         Ok(retval) => {
             let vec = w.into_inner();
 
             if !vec.is_empty() {
                 Ok(vec)
             } else {
-                Err(format!("Ok: {}", retval).into_bytes())
+                Err(retval.to_string().into_bytes())
             }
         }
-        Err(e) => Err(format!("Err: {}", e).into_bytes()),
+        Err(e) => Err(e.to_string().into_bytes()),
     }
 }

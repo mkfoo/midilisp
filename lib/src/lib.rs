@@ -11,14 +11,19 @@ mod value;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
-use error::Result;
+use error::WithContext;
+use fnv::FnvBuildHasher;
+use indexmap::{IndexMap, IndexSet};
 use interpreter::Interpreter;
 use std::io::Write;
 use value::Value;
 
-pub fn run<W: Write>(writer: &mut W, src: &str) -> Result<Value> {
+pub(crate) type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
+pub(crate) type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
+
+pub fn run<W: Write>(writer: &mut W, src: &str) -> std::result::Result<Value, WithContext> {
     let mut itp = Interpreter::new();
-    itp.run(writer, src)
+    itp.run(writer, src).map_err(|e| itp.get_context(e))
 }
 
 #[cfg(test)]

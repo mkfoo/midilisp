@@ -1,4 +1,7 @@
 use std::cmp::PartialEq;
+use std::fmt;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Copy, Clone, Debug, PartialEq)]
 pub enum Error {
@@ -60,4 +63,24 @@ pub enum Error {
     UnclosedStr,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+#[derive(thiserror::Error, Clone, Debug)]
+pub struct WithContext {
+    pub line: Option<u32>,
+    pub ident: Option<String>,
+    pub source: Error,
+}
+
+impl fmt::Display for WithContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let line = self
+            .line
+            .map(|l| format!(" on line {}", l))
+            .unwrap_or_else(String::new);
+        let ident = self
+            .ident
+            .as_ref()
+            .map(|i| format!(" at '{}'", i))
+            .unwrap_or_else(String::new);
+        write!(f, "Error{}{}: {}", line, ident, self.source)
+    }
+}

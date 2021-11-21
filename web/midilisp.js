@@ -18,7 +18,7 @@ class Midilisp {
     async loadWASM() {
         this.logOutput("Loading WASM module...");
         this.mod = await WebAssembly.compileStreaming(fetch("midilisp.wasm"));
-        this.logOutput("Ok");
+        this.logOutput(" ok.\n");
 
         const runBtn = document.getElementById("run-btn");
 
@@ -108,11 +108,11 @@ class Midilisp {
         );
         this.dLink.download = filename;
         this.saveBtn.hidden = false;
-        return `Ok: ${this.getLen(bytes.length)} written to ${filename}`;
+        return `${this.getLen(bytes.length)} written to ${filename}\n`;
     }
 
     logOutput(str) {
-        this.output.value += `${str}\n`;
+        this.output.value += str;
         this.output.scrollBy(0, 10000);
     }
 

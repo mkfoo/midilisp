@@ -4,7 +4,7 @@ use crate::{
     midi::{Event, Header, Track},
     parser::{AstPtr, Expr, Parser, StrId, NIL},
     value::Value,
-    FnvIndexSet,
+    FnvIndexMap, FnvIndexSet,
 };
 use std::convert::TryInto;
 use std::io::Write;
@@ -27,6 +27,7 @@ pub struct Interpreter {
     events: FnvIndexSet<Event>,
     tracks: Vec<Track>,
     c_ident: Option<StrId>,
+    log: FnvIndexMap<StrId, u32>,
 }
 
 impl Interpreter {
@@ -40,6 +41,7 @@ impl Interpreter {
             events: Default::default(),
             tracks: Vec::new(),
             c_ident: None,
+            log: Default::default(),
         };
         itp._define_builtins();
         itp
@@ -62,7 +64,24 @@ impl Interpreter {
             line: self.parser.line,
             ident: self.c_ident.map(|i| self.parser.get_str(i).to_string()),
             source: err,
+            log: self.get_log(),
         }
+    }
+
+    pub fn get_log(&self) -> String {
+        let mut log = String::new();
+
+        for (id, count) in self.log.iter() {
+            log.push_str(self.parser.get_str(*id));
+
+            if *count > 1 {
+                log.push_str(&format!(" ({})", count));
+            }
+
+            log.push('\n');
+        }
+
+        log
     }
 
     fn write_out<W: Write>(&mut self, writer: &mut W) -> Result<()> {
@@ -365,37 +384,43 @@ impl Interpreter {
         self.eval_body(body, new_env)
     }
 
-    fn print(&mut self, expr: AstPtr) -> Result<Value> {
-        self._print(expr, 'd')
+    fn log_str(&mut self, s: &str) {
+        let id = self.parser.add_str(s);
+        self.log_str_id(id);
     }
 
-    fn printx(&mut self, expr: AstPtr) -> Result<Value> {
-        self._print(expr, 'x')
+    fn log_str_id(&mut self, id: StrId) {
+        if let Some(count) = self.log.get_mut(&id) {
+            *count += 1;
+        } else {
+            self.log.insert(id, 1);
+        }
     }
 
-    fn printb(&mut self, expr: AstPtr) -> Result<Value> {
-        self._print(expr, 'b')
-    }
+    fn _log(&mut self, expr: AstPtr, fmt: char) -> Result<Value> {
+        let (val, nil) = self.expect_arg(expr)?;
+        self.expect_nil(nil)?;
 
-    fn _print(&mut self, mut expr: AstPtr, fmt: char) -> Result<Value> {
-        while expr != NIL {
-            let (car, cdr) = self.expect_cons(expr)?;
-
-            match (self.eval(car)?, fmt) {
-                (Value::Str(id), _) => {
-                    let s = self.parser.get_str(id);
-                    print!("{} ", s);
-                }
-                (val, 'x') => print!("{:#x} ", val),
-                (val, 'b') => print!("{:#b} ", val),
-                (val, _) => print!("{} ", val),
-            }
-
-            expr = cdr;
+        match (val, fmt) {
+            (Value::Str(id), _) => self.log_str_id(id),
+            (val, 'x') => self.log_str(&format!("{:#x}", val)),
+            (val, 'b') => self.log_str(&format!("{:#b}", val)),
+            (val, _) => self.log_str(&val.to_string()),
         }
 
-        println!();
         Ok(Value::Nil)
+    }
+
+    fn log(&mut self, expr: AstPtr) -> Result<Value> {
+        self._log(expr, 'd')
+    }
+
+    fn logx(&mut self, expr: AstPtr) -> Result<Value> {
+        self._log(expr, 'x')
+    }
+
+    fn logb(&mut self, expr: AstPtr) -> Result<Value> {
+        self._log(expr, 'b')
     }
 
     fn bitnot(&mut self, expr: AstPtr) -> Result<Value> {
@@ -605,9 +630,9 @@ impl Interpreter {
         self._builtin("define", Self::define);
         self._builtin("set", Self::set);
         self._builtin("let", Self::let_);
-        self._builtin("print", Self::print);
-        self._builtin("printx", Self::printx);
-        self._builtin("printb", Self::printb);
+        self._builtin("log", Self::log);
+        self._builtin("logx", Self::logx);
+        self._builtin("logb", Self::logb);
         self._builtin("include", Self::include);
         self._builtin("adv-clock", Self::adv_clock);
         self._builtin("lambda", Self::lambda);

@@ -14,7 +14,7 @@ fn main() {
     process::exit(match run() {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("Err: {}", err);
+            eprint!("{}", err);
             1
         }
     })
@@ -24,9 +24,8 @@ fn run() -> Result<()> {
     let opts = parse_args()?;
     let src = read_input(&opts)?;
     let mut writer = create_writer(&opts)?;
-    let retval = midilisp::run(&mut writer, &src)?;
-    eprint!("Ok: {}", retval);
-    finish(&opts)
+    let log = midilisp::run(&mut writer, &src)?;
+    finish(&opts, log)
 }
 
 struct Opts {
@@ -82,7 +81,7 @@ fn create_writer(opts: &Opts) -> Result<Box<dyn Write>> {
     }
 }
 
-fn finish(opts: &Opts) -> Result<()> {
+fn finish(opts: &Opts, log: String) -> Result<()> {
     match &opts.out_path {
         Some(out) => {
             let tmp = opts.tmp_path.as_ref().unwrap();
@@ -90,15 +89,15 @@ fn finish(opts: &Opts) -> Result<()> {
 
             if len > 0 {
                 fs::rename(&tmp, &out)?;
-                eprint!(" ({} bytes written)", len);
+                eprintln!("{} bytes written to {}", len, &out.to_string_lossy());
             } else {
+                eprint!("{}", log);
                 fs::remove_file(&tmp)?;
             }
         }
         None => {}
     }
 
-    eprintln!();
     Ok(())
 }
 

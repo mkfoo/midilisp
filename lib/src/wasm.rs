@@ -54,13 +54,13 @@ fn call_midilisp(src: &str) -> WasmResult {
     let mut w = Cursor::new(Vec::new());
 
     match super::run(&mut w, src) {
-        Ok(retval) => {
+        Ok(log) => {
             let vec = w.into_inner();
 
             if !vec.is_empty() {
                 Ok(vec)
             } else {
-                Err(retval.to_string().into_bytes())
+                Err(log.into_bytes())
             }
         }
         Err(e) => Err(e.to_string().into_bytes()),

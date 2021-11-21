@@ -68,6 +68,7 @@ pub struct WithContext {
     pub line: Option<u32>,
     pub ident: Option<String>,
     pub source: Error,
+    pub log: String,
 }
 
 impl fmt::Display for WithContext {
@@ -81,6 +82,6 @@ impl fmt::Display for WithContext {
             .as_ref()
             .map(|i| format!(" at '{}'", i))
             .unwrap_or_else(String::new);
-        write!(f, "Error{}{}: {}", line, ident, self.source)
+        write!(f, "{}Error{}{}: {}\n", self.log, line, ident, self.source)
     }
 }

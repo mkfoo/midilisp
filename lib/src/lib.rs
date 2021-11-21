@@ -16,14 +16,25 @@ use fnv::FnvBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 use interpreter::Interpreter;
 use std::io::Write;
-use value::Value;
 
 pub(crate) type FnvIndexMap<K, V> = IndexMap<K, V, FnvBuildHasher>;
 pub(crate) type FnvIndexSet<T> = IndexSet<T, FnvBuildHasher>;
 
-pub fn run<W: Write>(writer: &mut W, src: &str) -> std::result::Result<Value, WithContext> {
+pub fn run<W: Write>(writer: &mut W, src: &str) -> std::result::Result<String, WithContext> {
     let mut itp = Interpreter::new();
-    itp.run(writer, src).map_err(|e| itp.get_context(e))
+
+    match itp.run(writer, src) {
+        Ok(val) => {
+            let log = itp.get_log();
+
+            if log.is_empty() {
+                Ok(format!("{}\n", val))
+            } else {
+                Ok(log)
+            }
+        }
+        Err(e) => Err(itp.get_context(e)),
+    }
 }
 
 #[cfg(test)]

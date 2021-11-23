@@ -626,6 +626,7 @@ impl Interpreter {
         self._builtin("car", Self::car);
         self._builtin("cdr", Self::cdr);
         self._builtin("quote", Self::quote);
+        self._builtin("'", Self::quote);
         self._builtin("if", Self::if_);
         self._builtin("define", Self::define);
         self._builtin("set", Self::set);
@@ -873,7 +874,7 @@ mod tests {
     #[test]
     fn lists() {
         let src = "(define a (quote 1 2 3 4))
-                   (define b (quote (1 2) (3 4)))
+                   (define b (' (1 2) (3 4)))
                    (car a)
                    (car (cdr a))
                    (car (cdr (cdr a)))

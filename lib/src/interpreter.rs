@@ -91,8 +91,8 @@ impl Interpreter {
     }
 
     fn write_out<W: Write>(&mut self, writer: &mut W) -> Result<()> {
-        let fmt: u16 = self.get(0).map(|v| v.to_u16().unwrap_or(0))?;
-        let div: u16 = self.get(1).map(|v| v.to_u16().unwrap_or(96))?;
+        let fmt: u16 = self.get(0).map(|v| v._to_u16().unwrap_or(0))?;
+        let div: u16 = self.get(1).map(|v| v._to_u16().unwrap_or(96))?;
         self.c_ident = None;
         let ntrks: u16 = self
             .tracks
@@ -296,12 +296,12 @@ impl Interpreter {
 
     fn expect_u32(&mut self, expr: AstPtr) -> Result<(u32, AstPtr)> {
         let (car, cdr) = self.expect_cons(expr)?;
-        Ok((self.eval(car)?.to_u32()?, cdr))
+        Ok((self.eval(car)?._to_u32()?, cdr))
     }
 
     fn expect_u7(&mut self, expr: AstPtr) -> Result<(u8, AstPtr)> {
         let (car, cdr) = self.expect_cons(expr)?;
-        Ok((self.eval(car)?.to_u7()?, cdr))
+        Ok((self.eval(car)?._to_u7()?, cdr))
     }
 
     fn get(&mut self, id: StrId) -> Result<Value> {

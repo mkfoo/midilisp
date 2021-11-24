@@ -25,66 +25,66 @@ pub enum Value {
 
 impl Value {
     pub fn parse_int(s: &str) -> Result<Self> {
-        i32::from_str(s).map(Self::I32).map_err(|_| Error::ParseNum)
+        i32::from_str(s).map(I32).map_err(|_| Error::ParseNum)
     }
 
     pub fn parse_float(s: &str) -> Result<Self> {
-        f32::from_str(s).map(Self::F32).map_err(|_| Error::ParseNum)
+        f32::from_str(s).map(F32).map_err(|_| Error::ParseNum)
     }
 
     pub fn parse_hex(s: &str) -> Result<Self> {
         u32::from_str_radix(s, 16)
-            .map(Self::U32)
+            .map(U32)
             .map_err(|_| Error::ParseNum)
     }
 
     pub fn parse_bin(s: &str) -> Result<Self> {
         u32::from_str_radix(s, 2)
-            .map(Self::U32)
+            .map(U32)
             .map_err(|_| Error::ParseNum)
     }
 
-    pub fn to_u32(self) -> Result<u32> {
+    pub fn to_u32(self) -> Result<Value> {
         match self {
-            Self::U32(v) => Ok(v),
-            Self::I32(v) => v.try_into().map_err(|_| Error::Convert),
-            Self::F32(v) => Ok(v as u32),
-            Self::Nil => Err(Error::NilArgument),
+            U32(_) => Ok(self),
+            I32(v) => v.try_into().map(U32).map_err(|_| Error::Convert),
+            F32(v) => Ok(v as u32).map(U32),
+            Nil => Err(Error::NilArgument),
             _ => Err(Error::NotANumber),
         }
     }
 
     pub fn to_i32(self) -> Result<Value> {
         match self {
-            v @ Self::I32(_) => Ok(v),
-            Self::U32(v) => v.try_into().map(Self::I32).map_err(|_| Error::Convert),
-            Self::F32(v) => Ok(Self::I32(v as i32)),
-            Self::Nil => Err(Error::NilArgument),
+            I32(_) => Ok(self),
+            U32(v) => v.try_into().map(I32).map_err(|_| Error::Convert),
+            F32(v) => Ok(v as i32).map(I32),
+            Nil => Err(Error::NilArgument),
             _ => Err(Error::NotANumber),
         }
     }
 
     pub fn to_f32(self) -> Result<Value> {
         match self {
-            v @ Self::F32(_) => Ok(v),
-            Self::U32(v) => Ok(Self::F32(v as f32)),
-            Self::I32(v) => Ok(Self::F32(v as f32)),
-            Self::Nil => Err(Error::NilArgument),
+            F32(_) => Ok(self),
+            U32(v) => Ok(v as f32).map(F32),
+            I32(v) => Ok(v as f32).map(F32),
+            Nil => Err(Error::NilArgument),
             _ => Err(Error::NotANumber),
         }
     }
 
     pub fn to_midi(self) -> Result<u32> {
         match self {
-            Self::Midi(e) => Ok(e),
-            Self::Nil => Err(Error::NilArgument),
+            Midi(e) => Ok(e),
+            Nil => Err(Error::NilArgument),
             _ => Err(Error::NotMidi),
         }
     }
 
     pub fn to_str(self) -> Result<StrId> {
         match self {
-            Self::Str(id) => Ok(id),
+            Str(id) => Ok(id),
             _ => Err(Error::TypeErr),
         }
     }
@@ -98,7 +98,7 @@ impl Value {
         }
     }
 
-    pub fn to_u7(self) -> Result<u8> {
+    pub fn _to_u7(self) -> Result<u8> {
         Ok(match self.clamp(0x7f)? {
             U32(v) => v as u8,
             I32(v) => v as u8,
@@ -107,13 +107,20 @@ impl Value {
         })
     }
 
-    pub fn to_u16(self) -> Result<u16> {
+    pub fn _to_u16(self) -> Result<u16> {
         Ok(match self.clamp(0xffff)? {
             U32(v) => v as u16,
             I32(v) => v as u16,
             F32(v) => v as u16,
             _ => unreachable!(),
         })
+    }
+
+    pub fn _to_u32(self) -> Result<u32> {
+        match self.to_u32()? {
+            U32(v) => Ok(v),
+            _ => unreachable!(),
+        }
     }
 
     pub fn abs(self) -> Result<Self> {
@@ -145,7 +152,7 @@ impl Value {
     pub fn convert(self, other: Self) -> Result<(Self, Self)> {
         Ok(match (self, other) {
             (I32(_), U32(_)) => (self, other.to_i32()?),
-            (U32(_), I32(_)) => (self.to_i32()?, other),
+            (U32(_), I32(_)) => (self, other.to_u32()?),
             (F32(_), rhs) => (self, rhs.to_f32()?),
             (lhs, F32(_)) => (lhs.to_f32()?, other),
             _ => (self, other),
@@ -216,16 +223,16 @@ impl Value {
 
     pub fn shl(self, other: Self) -> Result<Self> {
         match (self, other.to_u32()?) {
-            (I32(lhs), rhs) => lhs.checked_shl(rhs).map(I32).ok_or(Error::Convert),
-            (U32(lhs), rhs) => lhs.checked_shl(rhs).map(U32).ok_or(Error::Convert),
+            (I32(lhs), U32(rhs)) => lhs.checked_shl(rhs).map(I32).ok_or(Error::Convert),
+            (U32(lhs), U32(rhs)) => lhs.checked_shl(rhs).map(U32).ok_or(Error::Convert),
             _ => Err(Error::TypeErr),
         }
     }
 
     pub fn shr(self, other: Self) -> Result<Self> {
         match (self, other.to_u32()?) {
-            (I32(lhs), rhs) => lhs.checked_shr(rhs).map(I32).ok_or(Error::Convert),
-            (U32(lhs), rhs) => lhs.checked_shr(rhs).map(U32).ok_or(Error::Convert),
+            (I32(lhs), U32(rhs)) => lhs.checked_shr(rhs).map(I32).ok_or(Error::Convert),
+            (U32(lhs), U32(rhs)) => lhs.checked_shr(rhs).map(U32).ok_or(Error::Convert),
             _ => Err(Error::TypeErr),
         }
     }

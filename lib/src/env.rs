@@ -59,9 +59,9 @@ impl EnvStore {
         let mut env = self.current;
 
         loop {
-            match self.values.get(&(env, id)).copied() {
+            match self.values.get(&(env, id)) {
                 None if env > 0 => env = self.parent(env),
-                opt => return opt,
+                opt => return opt.copied(),
             }
         }
     }

@@ -899,4 +899,28 @@ mod tests {
         assert_eq!(Value::I32(1), itp.eval(exprs[5]).unwrap());
         assert_eq!(Value::I32(4), itp.eval(exprs[6]).unwrap());
     }
+
+    #[test]
+    fn errors() {
+        let src = "(define foo
+                       (lambda (a b 123)
+                           (+ a b 123)))
+                   (define foo
+                       (lambda (a a c)
+                           (+ a a c)))
+                   (foo 1 2 3)
+                   (define foo
+                       (lambda (a b c)
+                           (+ a b c)))
+                   (foo 1 2)
+                   (foo 1 2 3 4)";
+        let mut itp = Interpreter::new();
+        let exprs = itp.parser.parse(src).unwrap();
+        assert_eq!(Error::NotAnIdent, itp.eval(exprs[0]).unwrap_err());
+        assert_eq!(Value::Nil, itp.eval(exprs[1]).unwrap());
+        assert_eq!(Error::DuplicateArg, itp.eval(exprs[2]).unwrap_err());
+        assert_eq!(Value::Nil, itp.eval(exprs[3]).unwrap());
+        assert_eq!(Error::NilArgument, itp.eval(exprs[4]).unwrap_err());
+        assert_eq!(Error::ExtraArgument, itp.eval(exprs[5]).unwrap_err());
+    }
 }

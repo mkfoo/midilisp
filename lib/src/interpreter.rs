@@ -26,6 +26,7 @@ pub struct Interpreter {
     lambdas: Vec<Lambda>,
     events: FnvIndexSet<Event>,
     tracks: Vec<Track>,
+    c_path: Option<usize>,
     c_ident: Option<StrId>,
     log: FnvIndexMap<StrId, u32>,
 }
@@ -40,6 +41,7 @@ impl Interpreter {
             lambdas: Vec::new(),
             events: Default::default(),
             tracks: Vec::new(),
+            c_path: None,
             c_ident: None,
             log: Default::default(),
         };
@@ -61,6 +63,11 @@ impl Interpreter {
 
     pub fn get_context(&self, err: Error) -> WithContext {
         WithContext {
+            path: self
+                .c_path
+                .map(|i| &self.paths[i])
+                .and_then(|p| p.file_name())
+                .map(|p| p.to_owned()),
             line: self.parser.line,
             ident: self.c_ident.map(|i| self.parser.get_str(i).to_string()),
             source: err,
@@ -547,13 +554,15 @@ impl Interpreter {
 
         if !self.paths.contains(&path) {
             let src = fs::read_to_string(&path).map_err(|_| Error::IO)?;
+            self.c_path = Some(self.paths.len());
+            self.paths.push(path);
             let exprs = self.parser.parse(&src)?;
 
             for expr in exprs.iter() {
                 self.eval(*expr)?;
             }
 
-            self.paths.push(path);
+            self.c_path = None;
         }
 
         Ok(())

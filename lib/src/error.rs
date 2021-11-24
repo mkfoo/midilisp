@@ -1,4 +1,5 @@
 use std::cmp::PartialEq;
+use std::ffi::OsString;
 use std::fmt;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -9,7 +10,7 @@ pub enum Error {
     Assert,
     #[error("value cannot be applied")]
     CannotApply,
-    #[error("cannot convert type: value out of range")]
+    #[error("cannot convert type; value out of range")]
     Convert,
     #[error("attempt to divide by zero")]
     DivideByZero,
@@ -65,6 +66,7 @@ pub enum Error {
 
 #[derive(thiserror::Error, Clone, Debug)]
 pub struct WithContext {
+    pub path: Option<OsString>,
     pub line: Option<u32>,
     pub ident: Option<String>,
     pub source: Error,
@@ -73,6 +75,12 @@ pub struct WithContext {
 
 impl fmt::Display for WithContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let path = self
+            .path
+            .as_ref()
+            .and_then(|p| p.to_str())
+            .map(|s| format!(" in {}", s))
+            .unwrap_or_else(String::new);
         let line = self
             .line
             .map(|l| format!(" on line {}", l))
@@ -82,6 +90,10 @@ impl fmt::Display for WithContext {
             .as_ref()
             .map(|i| format!(" at '{}'", i))
             .unwrap_or_else(String::new);
-        write!(f, "{}Error{}{}: {}\n", self.log, line, ident, self.source)
+        writeln!(
+            f,
+            "{}Error{}{}{}: {}",
+            self.log, path, line, ident, self.source
+        )
     }
 }

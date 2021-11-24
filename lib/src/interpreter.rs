@@ -1,5 +1,5 @@
 use crate::{
-    env::EnvStore,
+    env::{EnvId, EnvStore},
     error::{Error, Result, WithContext},
     midi::{Event, Header, Track},
     parser::{AstPtr, Expr, Parser, StrId, NIL},
@@ -15,15 +15,14 @@ const INCLUDE_PATH: &str = "./include";
 type BuiltinFn<T> = fn(&mut T, AstPtr) -> Result<Value>;
 type UnOpFn = fn(Value) -> Result<Value>;
 type OpFn = fn(Value, Value) -> Result<Value>;
-
-struct Lambda(u32, Box<[StrId]>, AstPtr);
+type Lambda = (AstPtr, AstPtr);
 
 pub struct Interpreter {
     parser: Parser,
     env: EnvStore,
     builtins: Vec<BuiltinFn<Self>>,
     paths: Vec<PathBuf>,
-    lambdas: Vec<Lambda>,
+    lambdas: FnvIndexMap<Lambda, EnvId>,
     events: FnvIndexSet<Event>,
     tracks: Vec<Track>,
     c_path: Option<usize>,
@@ -38,7 +37,7 @@ impl Interpreter {
             env: EnvStore::new(),
             builtins: Vec::with_capacity(40),
             paths: Vec::new(),
-            lambdas: Vec::new(),
+            lambdas: Default::default(),
             events: Default::default(),
             tracks: Vec::new(),
             c_path: None,
@@ -177,27 +176,30 @@ impl Interpreter {
         Ok(acc)
     }
 
-    fn call(&mut self, lambda: u32, mut arglist: AstPtr) -> Result<Value> {
-        let body = self.lambdas[lambda as usize].2;
-        let parent_env = self.lambdas[lambda as usize].0;
-        let lambda_env = self.env.create(parent_env);
-        let mut argc = 0_u32;
+    fn call(&mut self, lambda: u32, mut arg_vals: AstPtr) -> Result<Value> {
+        let (mut arg_ids, body, par_env) = self
+            .lambdas
+            .get_index(lambda as usize)
+            .map(|((a, b), e)| (*a, *b, *e))
+            .expect("BUG: invalid lambda id");
+        let lambda_env = self.env.create(par_env);
 
-        while arglist != NIL {
-            let (car, cdr) = self.expect_cons(arglist)?;
-            let id = self.get_arg_id(lambda, argc).ok_or(Error::ExtraArgument)?;
-            let val = self.eval(car)?;
+        while arg_ids != NIL {
+            let (icar, icdr) = self.expect_cons(arg_ids)?;
+            let (vcar, vcdr) = self.expect_cons(arg_vals).map_err(|_| Error::NilArgument)?;
+            let id = self.expect_ident(icar).unwrap();
+            let val = self.eval(vcar)?;
 
             if !self.env.extend(lambda_env, id, val) {
                 return Err(Error::DuplicateArg);
             }
 
-            arglist = cdr;
-            argc += 1;
+            arg_ids = icdr;
+            arg_vals = vcdr;
         }
 
-        if self.get_arg_id(lambda, argc).is_some() {
-            return Err(Error::NilArgument);
+        if arg_vals != NIL {
+            return Err(Error::ExtraArgument);
         }
 
         self.eval_body(body, lambda_env)
@@ -265,7 +267,7 @@ impl Interpreter {
         }
     }
 
-    fn expect_ident(&self, expr: AstPtr) -> Result<u32> {
+    fn expect_ident(&self, expr: AstPtr) -> Result<StrId> {
         match self.parser.get(expr) {
             Expr::Atom(Value::Ident(i)) => Ok(i),
             _ => Err(Error::NotAnIdent),
@@ -305,10 +307,6 @@ impl Interpreter {
     fn get(&mut self, id: StrId) -> Result<Value> {
         self.c_ident = Some(id);
         self.env.get(id).ok_or(Error::Undefined)
-    }
-
-    fn get_arg_id(&self, lambda: u32, argc: u32) -> Option<u32> {
-        self.lambdas[lambda as usize].1.get(argc as usize).copied()
     }
 
     fn get_event(&self, id: u32) -> Event {
@@ -359,20 +357,18 @@ impl Interpreter {
     }
 
     fn lambda(&mut self, expr: AstPtr) -> Result<Value> {
-        let (mut args, body) = self.expect_cons(expr)?;
-        let mut argv = Vec::new();
+        let (args, body) = self.expect_cons(expr)?;
+        let mut m_args = args;
 
-        while args != NIL {
-            let (arg, more) = self.expect_cons(args)?;
-            let id = self.expect_ident(arg)?;
-            argv.push(id);
-            args = more;
+        while m_args != NIL {
+            let (arg, more) = self.expect_cons(m_args)?;
+            self.expect_ident(arg)?;
+            m_args = more;
         }
 
         self.env.capture = true;
-        self.lambdas
-            .push(Lambda(self.env.current, argv.into_boxed_slice(), body));
-        Ok(Value::Lambda((self.lambdas.len() - 1) as u32))
+        let id = self.lambdas.insert_full((args, body), self.env.current).0;
+        Ok(Value::Lambda(id as u32))
     }
 
     fn let_(&mut self, expr: AstPtr) -> Result<Value> {

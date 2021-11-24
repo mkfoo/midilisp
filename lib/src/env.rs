@@ -1,12 +1,15 @@
+use crate::parser::StrId;
 use crate::value::Value;
 use crate::FnvIndexMap;
 
+pub type EnvId = u32;
+
 pub struct EnvStore {
     count: u32,
-    pub current: u32,
+    pub current: EnvId,
     pub capture: bool,
-    parents: FnvIndexMap<u32, u32>,
-    values: FnvIndexMap<(u32, u32), Value>,
+    parents: FnvIndexMap<EnvId, EnvId>,
+    values: FnvIndexMap<(EnvId, StrId), Value>,
 }
 
 impl EnvStore {
@@ -20,7 +23,7 @@ impl EnvStore {
         }
     }
 
-    pub fn create(&mut self, parent: u32) -> u32 {
+    pub fn create(&mut self, parent: EnvId) -> EnvId {
         self.count += 1;
 
         if parent > 0 {
@@ -30,15 +33,15 @@ impl EnvStore {
         self.count
     }
 
-    pub fn parent(&self, child: u32) -> u32 {
+    pub fn parent(&self, child: EnvId) -> EnvId {
         *self.parents.get(&child).unwrap_or(&0)
     }
 
-    pub fn extend(&mut self, env: u32, id: u32, val: Value) -> bool {
+    pub fn extend(&mut self, env: EnvId, id: StrId, val: Value) -> bool {
         self.values.insert((env, id), val).is_none()
     }
 
-    pub fn pop(&mut self, env: u32) {
+    pub fn pop(&mut self, env: EnvId) {
         if !self.capture && env != self.current {
             while let Some((key, _)) = self.values.last() {
                 if key.0 == env {
@@ -52,7 +55,7 @@ impl EnvStore {
         }
     }
 
-    pub fn get(&mut self, id: u32) -> Option<Value> {
+    pub fn get(&mut self, id: StrId) -> Option<Value> {
         let mut env = self.current;
 
         loop {
@@ -63,7 +66,7 @@ impl EnvStore {
         }
     }
 
-    pub fn set(&mut self, id: u32, val: Value) -> bool {
+    pub fn set(&mut self, id: StrId, val: Value) -> bool {
         let mut env = self.current;
 
         loop {

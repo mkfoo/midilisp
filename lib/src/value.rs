@@ -215,25 +215,19 @@ impl Value {
     }
 
     pub fn shl(self, other: Self) -> Result<Self> {
-        match self.convert(other)? {
-            (I32(lhs), I32(rhs)) => lhs
-                .checked_shl(rhs.try_into().map_err(|_| Error::Convert)?)
-                .map(I32),
-            (U32(lhs), U32(rhs)) => lhs.checked_shl(rhs).map(U32),
-            _ => return Err(Error::TypeErr),
+        match (self, other.to_u32()?) {
+            (I32(lhs), rhs) => lhs.checked_shl(rhs).map(I32).ok_or(Error::Convert),
+            (U32(lhs), rhs) => lhs.checked_shl(rhs).map(U32).ok_or(Error::Convert),
+            _ => Err(Error::TypeErr),
         }
-        .ok_or(Error::Overflow)
     }
 
     pub fn shr(self, other: Self) -> Result<Self> {
-        match self.convert(other)? {
-            (I32(lhs), I32(rhs)) => lhs
-                .checked_shr(rhs.try_into().map_err(|_| Error::Convert)?)
-                .map(I32),
-            (U32(lhs), U32(rhs)) => lhs.checked_shr(rhs).map(U32),
-            _ => return Err(Error::TypeErr),
+        match (self, other.to_u32()?) {
+            (I32(lhs), rhs) => lhs.checked_shr(rhs).map(I32).ok_or(Error::Convert),
+            (U32(lhs), rhs) => lhs.checked_shr(rhs).map(U32).ok_or(Error::Convert),
+            _ => Err(Error::TypeErr),
         }
-        .ok_or(Error::Overflow)
     }
 
     pub fn bitand(self, other: Self) -> Result<Self> {

@@ -71,11 +71,12 @@
 
 (define for-range
     (lambda (start end list func)
+        (assert (< start end))
         (define loop
             (lambda (idx list)
                 (if (>= idx start)
                     (func (car list)))
-                (if (>= idx end)
+                (if (>= idx (- end 1))
                     ()
                     (loop (+ idx 1) (cdr list)))))
         (loop 0 list)))

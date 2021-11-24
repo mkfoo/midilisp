@@ -1,0 +1,19 @@
+(define xorshift
+    (lambda (s)    
+        (set s (^ s (<< s 13)))
+        (set s (^ s (>> s 17)))
+        (^ s (<< s 5))))          
+        
+(define lcg
+    (lambda (mod a c)
+        (lambda (s)
+            (% (+ (* a s) c) mod))))
+
+(define seed-rand
+    (lambda (func state) 
+        (assert (!= state 0))
+        (lambda (min max)
+            (assert (< min max)) 
+            (assert (> max 0))  
+            (set state (func state))    
+            (+ min (% state max)))))

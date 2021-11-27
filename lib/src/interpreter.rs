@@ -439,6 +439,7 @@ impl Interpreter {
             Expr::Atom(v @ Value::F32(_)) => Ok(v),
             Expr::Atom(v @ Value::Str(_)) => Ok(v),
             Expr::Atom(v @ Value::Nil) => Ok(v),
+            Expr::Atom(Value::Ident(id)) => self.get(id),
             _ => Ok(Value::Quote(expr)),
         }
     }

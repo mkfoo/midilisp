@@ -80,3 +80,13 @@
                     ()
                     (loop (+ idx 1) (cdr list)))))
         (loop 0 list)))
+
+(define nth  
+    (lambda (li n)
+        (define loop
+            (lambda (li n curr)
+                (assert (!= li ()))                                 
+                (if (= n curr)
+                    (car li)
+                    (loop (cdr li) n (+ curr 1)))))
+        (loop li n 0)))

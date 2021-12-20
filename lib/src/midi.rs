@@ -38,6 +38,7 @@ impl Header {
             (0, 1, _) => {}
             (0, _, _) => return Err(Error::InvalidFmt0),
             (1, _, _) => {}
+            (2, _, _) => {}
             _ => return Err(Error::InvalidFormat),
         }
 

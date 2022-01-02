@@ -514,6 +514,15 @@ impl Interpreter {
         self.add_event(Event::TimeSignature(nn, dd, cc, bb))
     }
 
+    fn pitch_bend(&mut self, next: AstPtr) -> Result<Value> {
+        let (chn, next) = self.expect_u7(next)?;
+        let (val, next) = self.expect_u32(next)?;
+        let lsb = (val & 0x7f) as u8;
+        let msb = (val >> 7 & 0x7f) as u8;
+        self.expect_nil(next)?;
+        self.add_event(Event::PitchBend(chn, lsb, msb))
+    }
+
     fn put_event(&mut self, next: AstPtr) -> Result<Value> {
         let (trk, next) = self.expect_u32(next)?;
         let (dur, next) = self.expect_u32(next)?;
@@ -649,6 +658,7 @@ impl Interpreter {
         self._builtin("program-change", Self::program_change);
         self._builtin("set-tempo", Self::set_tempo);
         self._builtin("time-signature", Self::time_signature);
+        self._builtin("pitch-bend", Self::pitch_bend);
         self._builtin("put-event", Self::put_event);
     }
 }

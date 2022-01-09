@@ -103,3 +103,14 @@
                 (on num clk vel)
                 (on num (+ clk (delta art)) 0)
                 (set clk (+ clk (delta dur)))))))
+
+(define ramp
+    (lambda (dur val t-step v-step func)
+        (define loop
+            (lambda (t)
+                (put-event trk t (func val))
+                (set val (+ val v-step))
+                (if (>= t dur)
+                    ()
+                    (loop (+ t t-step)))))
+        (loop 0)))
